@@ -9,14 +9,14 @@ import (
 func TestTokeniser(t *testing.T) {
 	tests := []struct {
 		pattern string
-		want    []component
+		want    tokens
 	}{
 		{
 			pattern: "ab/cde",
-			want: []component{
+			want: tokens{
 				literal('a'),
 				literal('b'),
-				pathSeparator{},
+				punctuation('/'),
 				literal('c'),
 				literal('d'),
 				literal('e'),
@@ -24,7 +24,7 @@ func TestTokeniser(t *testing.T) {
 		},
 		{
 			pattern: "\\ jam\\",
-			want: []component{
+			want: tokens{
 				literal(' '),
 				literal('j'),
 				literal('a'),
@@ -34,37 +34,39 @@ func TestTokeniser(t *testing.T) {
 		},
 		{
 			pattern: "* or ** or \\*? *",
-			want: []component{
-				star{},
+			want: tokens{
+				punctuation('*'),
 				literal(' '),
 				literal('o'),
 				literal('r'),
 				literal(' '),
-				doubleStar{},
+				punctuation('⁑'),
 				literal(' '),
 				literal('o'),
 				literal('r'),
 				literal(' '),
 				literal('*'),
-				question{},
+				punctuation('?'),
 				literal(' '),
-				star{},
+				punctuation('*'),
 			},
 		},
 		{
-			pattern: "{a,b,c}[de]",
-			want: []component{
-				openBrace{},
+			pattern: "{a,b,c}[d*\\]e]",
+			want: tokens{
+				punctuation('{'),
 				literal('a'),
-				comma{},
+				punctuation(','),
 				literal('b'),
-				comma{},
+				punctuation(','),
 				literal('c'),
-				closeBrace{},
-				openBracket{},
+				punctuation('}'),
+				punctuation('['),
 				literal('d'),
+				literal('*'),
+				literal(']'),
 				literal('e'),
-				closeBracket{},
+				punctuation(']'),
 			},
 		},
 	}
