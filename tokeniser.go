@@ -6,11 +6,13 @@ type (
 	punctuation rune // /, *, ** (as ⁑), ?, {, }, [, ], or comma
 )
 
-type tokens []any
+type token any
+
+type tokens []token
 
 func tokenise(p string) tokens {
 	// Most tokens are single runes, so preallocate len(p).
-	tks := make([]any, 0, len(p))
+	tks := make(tokens, 0, len(p))
 
 	// Tokenisation state.
 	escape := false   // the previous char was \

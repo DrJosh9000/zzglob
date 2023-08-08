@@ -1,16 +1,13 @@
 package zzglob
 
 type expression interface {
-	match(s string) (match, done bool)
+	match(rune) (matched, proceed bool)
 }
 
 // Expressions
 type (
 	// Matches exactly this literal
 	literalExp rune
-
-	// A sequence matches expressions in sequence.
-	sequenceExp []expression
 
 	// Matches / (the path separator)
 	pathSepExp struct{}
@@ -23,24 +20,19 @@ type (
 
 	// ? matches like .
 	questionExp struct{}
-
-	// Matches a set of runes.
-	charClassExp map[rune]struct{}
-
-	// Matches any of the expressions it contains.
-	alternationExp []expression
 )
 
-func (e literalExp) match(s string) (match, done bool) {
-	if s == string(e) {
-		return true, true
-	}
-	for _, r := range s {
-		return r == rune(e), false
-	}
-	return false, false
+func (e literalExp) match(r rune) (bool, bool) { return rune(e) == r, true }
+func (pathSepExp) match(r rune) (bool, bool)   { return r == '/', true }
+func (starExp) match(r rune) (bool, bool)      { return r != '/', false }
+func (doubleStarExp) match(rune) (bool, bool)  { return true, false }
+func (questionExp) match(r rune) (bool, bool)  { return r != '/', true }
+
+type edge struct {
+	Expr expression
+	Node *node
 }
 
-func (e sequenceExp) match(s string) (match, done bool) {
-
+type node struct {
+	Out []edge
 }

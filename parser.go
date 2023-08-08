@@ -5,104 +5,156 @@ import (
 	"fmt"
 )
 
-func parse(pattern string) (string, expression, error) {
+// parse converts a pattern into a finite automaton.
+func parse(pattern string) (string, *node, error) {
 	tks := tokenise(pattern)
-	seq, _, err := parseSequence(&tks, false)
 	// TODO: handle finding the root
-	return "", seq, err
+	n, _, _, err := parseSequence(&tks, false)
+	if err != nil {
+		return "", nil, err
+	}
+	reduce(n)
+	return "", n, nil
 }
 
-func parseSequence(tks *tokens, insideAlt bool) (seq sequenceExp, done bool, err error) {
+// reduce recursively eliminates any edges with nil expression.
+func reduce(n *node) {
+	var enew []edge
+	for _, e := range n.Out {
+		if e.Node == nil {
+			continue
+		}
+		reduce(e.Node)
+		if e.Expr == nil {
+			// e is an expressionless edge. Using the next node's edges.
+			enew = append(enew, e.Node.Out...)
+			continue
+		}
+		enew = append(enew, e)
+	}
+	n.Out = enew
+}
+
+// parseSequence parses a sequence into a finite automaton.
+func parseSequence(tkns *tokens, insideAlt bool) (start, end *node, endedWith token, err error) {
+	start = &node{}
+	end = start
+	appendExp := func(e expression) {
+		next := &node{}
+		end.Out = append(end.Out, edge{
+			Expr: e,
+			Node: next,
+		})
+		end = next
+	}
+
 	for {
-		t := tks.next()
+		t := tkns.next()
 		if t == nil {
-			return seq, true, nil
+			return start, end, nil, nil
 		}
 
 		switch t := t.(type) {
 		case literal:
-			seq = append(seq, literalExp(t))
+			appendExp(literalExp(t))
 
 		case punctuation:
 			switch t {
 			case '/':
-				seq = append(seq, pathSepExp{})
+				appendExp(pathSepExp{})
 
 			case '*':
-				seq = append(seq, starExp{})
+				appendExp(starExp{})
 
 			case '⁑':
-				seq = append(seq, doubleStarExp{})
+				appendExp(doubleStarExp{})
 
 			case '?':
-				seq = append(seq, questionExp{})
+				appendExp(questionExp{})
 
 			case '{':
-				a, err := parseAlternation(tks)
+				ed, err := parseAlternation(tkns, end)
 				if err != nil {
-					return nil, false, err
+					return nil, nil, nil, err
 				}
-				seq = append(seq, a)
+				end = ed
 
 			case '}':
 				if insideAlt {
-					return seq, true, nil
+					return start, end, t, nil
 				}
-				seq = append(seq, literalExp('}'))
+				appendExp(literalExp('}'))
 
 			case ',':
 				if insideAlt {
-					return seq, false, nil
+					return start, end, t, nil
 				}
-				seq = append(seq, literalExp(','))
+				appendExp(literalExp(','))
 
 			case '[':
-				c, err := parseCharClass(tks)
+				ed, err := parseCharClass(tkns, end)
 				if err != nil {
-					return nil, false, err
+					return nil, nil, nil, err
 				}
-				seq = append(seq, c)
+				end = ed
 
 			default:
-				return nil, false, fmt.Errorf("invalid punctuation %c", t)
+				return nil, nil, nil, fmt.Errorf("invalid punctuation %c", t)
 			}
 
 		default:
-			return nil, false, fmt.Errorf("invalid token type %T", t)
+			return nil, nil, nil, fmt.Errorf("invalid token type %T", t)
 		}
 	}
 }
 
-func parseAlternation(tks *tokens) (alternationExp, error) {
-	// TODO: need to handle missing closing brace
-	var a alternationExp
+// parseAlternation appends a branch to the automaton, a sequence in each
+// branch, then a merge.
+func parseAlternation(tks *tokens, from *node) (end *node, err error) {
+	end = &node{}
 	for {
-		seq, done, err := parseSequence(tks, true)
+		st, ed, done, err := parseSequence(tks, true)
 		if err != nil {
 			return nil, err
 		}
-		a = append(a, seq)
-		if done {
-			return a, nil
+		from.Out = append(from.Out, st.Out...)
+		ed.Out = append(ed.Out, edge{
+			Expr: nil,
+			Node: end,
+		})
+
+		switch done {
+		case punctuation(','):
+			continue
+
+		case punctuation('}'):
+			return end, nil
+
+		default:
+			return nil, errors.New("unterminated alternation - missing closing brace")
 		}
 	}
 }
 
-func parseCharClass(tks *tokens) (charClassExp, error) {
-	cc := make(charClassExp)
+// parseCharClass is like parseAlternation.
+func parseCharClass(tks *tokens, from *node) (end *node, err error) {
+	end = &node{}
 	for {
 		t := tks.next()
 		if t == nil {
-			return nil, errors.New("unterminated char class")
+			return nil, errors.New("unterminated char class - missing closing square bracket")
 		}
 		switch t := t.(type) {
 		case literal:
-			cc[rune(t)] = struct{}{}
+			from.Out = append(from.Out, edge{
+				Expr: literalExp(t),
+				Node: end,
+			})
 
 		case punctuation:
 			switch t {
 			case ']':
-				return cc, nil
+				return end, nil
 
 			default:
 				return nil, fmt.Errorf("invalid %c within char class", t)
