@@ -3,7 +3,7 @@ package zzglob
 // Lexer tokens
 type (
 	literal     rune // not any of the below
-	punctuation rune // /, *, ** (as ⁑), ?, {, }, [, ], or comma
+	punctuation rune // *, ** (as ⁑), ?, {, }, [, ], or comma
 )
 
 func (literal) tokenTag()     {}
@@ -78,7 +78,7 @@ func tokenise(p string) tokens {
 			insideCC = true
 			fallthrough
 
-		case '/', '?', ']', '{', '}', ',':
+		case '?', ']', '{', '}', ',':
 			tks = append(tks, punctuation(c))
 
 		default:

@@ -16,7 +16,7 @@ func TestTokeniser(t *testing.T) {
 			want: tokens{
 				literal('a'),
 				literal('b'),
-				punctuation('/'),
+				literal('/'),
 				literal('c'),
 				literal('d'),
 				literal('e'),

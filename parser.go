@@ -8,6 +8,18 @@ import (
 // parse converts a pattern into a finite automaton.
 func parse(pattern string) (string, *state, error) {
 	tks := tokenise(pattern)
+	// var root strings.Builder
+	// for _, t := range tks {
+	// 	l, ok := t.(literal)
+	// 	if !ok {
+	// 		break
+	// 	}
+	// 	root.WriteRune(rune(l))
+	// }
+	// if root.String() == pattern {
+	// 	return pattern, nil, nil
+	// }
+
 	// TODO: handle finding the root
 	n, _, _, err := parseSequence(&tks, false)
 	if err != nil {
@@ -60,9 +72,6 @@ func parseSequence(tkns *tokens, insideAlt bool) (start, end *state, endedWith t
 
 		case punctuation:
 			switch t {
-			case '/':
-				appendExp(pathSepExp{})
-
 			case '*':
 				appendExp(starExp{})
 

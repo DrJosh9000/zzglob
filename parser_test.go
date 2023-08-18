@@ -20,7 +20,7 @@ func TestParse(t *testing.T) {
 			State: &state{Out: []edge{{
 				Expr: literalExp('c'),
 				State: &state{Out: []edge{{
-					Expr: pathSepExp{},
+					Expr: literalExp('/'),
 					State: &state{Out: []edge{
 						{Expr: literalExp('d'), State: &state{}},
 						{Expr: literalExp('e'), State: &state{}},

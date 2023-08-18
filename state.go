@@ -4,6 +4,11 @@ type state struct {
 	Out []edge
 }
 
+type edge struct {
+	Expr  expression
+	State *state
+}
+
 func (s *state) terminal() bool { return len(s.Out) == 0 }
 
 func matchSegment(set []*state, segment string) []*state {
