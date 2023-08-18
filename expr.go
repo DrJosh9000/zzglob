@@ -1,7 +1,9 @@
 package zzglob
 
 type expression interface {
-	match(rune) (match, split bool)
+	// match reports if the rune matches the expression, and whether to
+	// keep the current state.
+	match(rune) (matched, keep bool)
 }
 
 // Expressions
@@ -29,37 +31,42 @@ func (doubleStarExp) match(rune) (bool, bool)  { return true, true }
 func (questionExp) match(r rune) (bool, bool)  { return r != '/', false }
 
 type edge struct {
-	Expr expression
-	Node *node
+	Expr  expression
+	State *state
 }
 
-type node struct {
+type state struct {
 	Out []edge
 }
 
-func (n *node) terminal() bool { return len(n.Out) == 0 }
+func (s *state) terminal() bool { return len(s.Out) == 0 }
 
-func match(start *node, path string) bool {
-	nodes := []*node{start}
-	var next []*node
-	for _, r := range path {
-		if len(nodes) == 0 {
-			return false
+func matchSegment(set []*state, segment string) []*state {
+	var next []*state
+	for _, r := range segment {
+		if len(set) == 0 {
+			return nil
 		}
-		for _, n := range nodes {
+		for _, n := range set {
 			for _, e := range n.Out {
-				m, s := e.Expr.match(r)
-				if m {
-					next = append(next, e.Node)
-					if s {
-						next = append(next, n)
-					}
+				matched, keep := e.Expr.match(r)
+				if !matched {
+					continue
+				}
+				next = append(next, e.State)
+				if keep {
+					next = append(next, n)
 				}
 			}
 		}
-		nodes, next = next, nodes[:0]
+		set, next = next, set[:0]
 	}
-	for _, n := range nodes {
+	return set
+}
+
+func match(start *state, path string) bool {
+	set := matchSegment([]*state{start}, path)
+	for _, n := range set {
 		if n.terminal() {
 			return true
 		}

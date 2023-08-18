@@ -13,17 +13,17 @@ func TestParse(t *testing.T) {
 		t.Fatalf("parse(%q) error = %v", input, err)
 	}
 
-	want := &node{Out: []edge{{
+	want := &state{Out: []edge{{
 		Expr: literalExp('a'),
-		Node: &node{Out: []edge{{
+		State: &state{Out: []edge{{
 			Expr: literalExp('b'),
-			Node: &node{Out: []edge{{
+			State: &state{Out: []edge{{
 				Expr: literalExp('c'),
-				Node: &node{Out: []edge{{
+				State: &state{Out: []edge{{
 					Expr: pathSepExp{},
-					Node: &node{Out: []edge{
-						{Expr: literalExp('d'), Node: &node{}},
-						{Expr: literalExp('e'), Node: &node{}},
+					State: &state{Out: []edge{
+						{Expr: literalExp('d'), State: &state{}},
+						{Expr: literalExp('e'), State: &state{}},
 					}},
 				}}},
 			}}},

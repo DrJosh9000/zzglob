@@ -6,7 +6,7 @@ import (
 )
 
 // parse converts a pattern into a finite automaton.
-func parse(pattern string) (string, *node, error) {
+func parse(pattern string) (string, *state, error) {
 	tks := tokenise(pattern)
 	// TODO: handle finding the root
 	n, _, _, err := parseSequence(&tks, false)
@@ -18,16 +18,16 @@ func parse(pattern string) (string, *node, error) {
 }
 
 // reduce recursively eliminates any edges with nil expression.
-func reduce(n *node) {
+func reduce(n *state) {
 	var enew []edge
 	for _, e := range n.Out {
-		if e.Node == nil {
+		if e.State == nil {
 			continue
 		}
-		reduce(e.Node)
+		reduce(e.State)
 		if e.Expr == nil {
 			// e is an expressionless edge. Using the next node's edges.
-			enew = append(enew, e.Node.Out...)
+			enew = append(enew, e.State.Out...)
 			continue
 		}
 		enew = append(enew, e)
@@ -36,14 +36,14 @@ func reduce(n *node) {
 }
 
 // parseSequence parses a sequence into a finite automaton.
-func parseSequence(tkns *tokens, insideAlt bool) (start, end *node, endedWith token, err error) {
-	start = &node{}
+func parseSequence(tkns *tokens, insideAlt bool) (start, end *state, endedWith token, err error) {
+	start = &state{}
 	end = start
 	appendExp := func(e expression) {
-		next := &node{}
+		next := &state{}
 		end.Out = append(end.Out, edge{
-			Expr: e,
-			Node: next,
+			Expr:  e,
+			State: next,
 		})
 		end = next
 	}
@@ -110,8 +110,8 @@ func parseSequence(tkns *tokens, insideAlt bool) (start, end *node, endedWith to
 
 // parseAlternation appends a branch to the automaton, a sequence in each
 // branch, then a merge.
-func parseAlternation(tks *tokens, from *node) (end *node, err error) {
-	end = &node{}
+func parseAlternation(tks *tokens, from *state) (end *state, err error) {
+	end = &state{}
 	for {
 		st, ed, done, err := parseSequence(tks, true)
 		if err != nil {
@@ -119,8 +119,8 @@ func parseAlternation(tks *tokens, from *node) (end *node, err error) {
 		}
 		from.Out = append(from.Out, st.Out...)
 		ed.Out = append(ed.Out, edge{
-			Expr: nil,
-			Node: end,
+			Expr:  nil,
+			State: end,
 		})
 
 		switch done {
@@ -137,8 +137,8 @@ func parseAlternation(tks *tokens, from *node) (end *node, err error) {
 }
 
 // parseCharClass is like parseAlternation.
-func parseCharClass(tks *tokens, from *node) (end *node, err error) {
-	end = &node{}
+func parseCharClass(tks *tokens, from *state) (end *state, err error) {
+	end = &state{}
 	for {
 		t := tks.next()
 		if t == nil {
@@ -147,8 +147,8 @@ func parseCharClass(tks *tokens, from *node) (end *node, err error) {
 		switch t := t.(type) {
 		case literal:
 			from.Out = append(from.Out, edge{
-				Expr: literalExp(t),
-				Node: end,
+				Expr:  literalExp(t),
+				State: end,
 			})
 
 		case punctuation:

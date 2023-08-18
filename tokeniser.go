@@ -6,7 +6,10 @@ type (
 	punctuation rune // /, *, ** (as ⁑), ?, {, }, [, ], or comma
 )
 
-type token any
+func (literal) tokenTag()     {}
+func (punctuation) tokenTag() {}
+
+type token interface{ tokenTag() }
 
 type tokens []token
 
