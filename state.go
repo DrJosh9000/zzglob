@@ -1,5 +1,7 @@
 package zzglob
 
+import "strings"
+
 type state struct {
 	Out []edge
 }
@@ -11,35 +13,50 @@ type edge struct {
 
 func (s *state) terminal() bool { return len(s.Out) == 0 }
 
-func matchSegment(set []*state, segment string) []*state {
-	var next []*state
+func matchSegment(start map[*state]struct{}, segment string) map[*state]struct{} {
+	a := make(map[*state]struct{}, len(start))
+	b := make(map[*state]struct{}, len(start))
+	for n := range start {
+		a[n] = struct{}{}
+	}
+
 	for _, r := range segment {
-		if len(set) == 0 {
+		if len(a) == 0 {
 			return nil
 		}
-		for _, n := range set {
+		for n := range a {
 			for _, e := range n.Out {
 				matched, keep := e.Expr.match(r)
 				if !matched {
 					continue
 				}
-				next = append(next, e.State)
+				b[e.State] = struct{}{}
 				if keep {
-					next = append(next, n)
+					b[n] = struct{}{}
 				}
 			}
 		}
-		set, next = next, set[:0]
+		a, b = b, a
+		clear(b)
 	}
-	return set
+	return a
 }
 
-func match(start *state, path string) bool {
-	set := matchSegment([]*state{start}, path)
-	for _, n := range set {
+func match(root string, start *state, path string) bool {
+	rem, ok := strings.CutPrefix(path, root)
+	if !ok {
+		return false
+	}
+	set := matchSegment(singleton(start), rem)
+	for n := range set {
 		if n.terminal() {
 			return true
 		}
 	}
 	return false
+}
+
+// singleton wraps a single value into a map used as a set.
+func singleton[K comparable](k K) map[K]struct{} {
+	return map[K]struct{}{k: {}}
 }

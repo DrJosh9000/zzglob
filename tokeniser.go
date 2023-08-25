@@ -13,7 +13,7 @@ type token interface{ tokenTag() }
 
 type tokens []token
 
-func tokenise(p string) tokens {
+func tokenise(p string) *tokens {
 	// Most tokens are single runes, so preallocate len(p).
 	tks := make(tokens, 0, len(p))
 
@@ -95,7 +95,7 @@ func tokenise(p string) tokens {
 		tks = append(tks, punctuation('*'))
 	}
 
-	return tks
+	return &tks
 }
 
 // next uses a pointer to a slice as a consuming reader.

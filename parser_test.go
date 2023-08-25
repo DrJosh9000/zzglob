@@ -7,24 +7,27 @@ import (
 )
 
 func TestParse(t *testing.T) {
-	input := "abc/{d,e}"
+	input := "*abc/{d,e}"
 	_, got, err := parse(input)
 	if err != nil {
 		t.Fatalf("parse(%q) error = %v", input, err)
 	}
 
 	want := &state{Out: []edge{{
-		Expr: literalExp('a'),
+		Expr: starExp{},
 		State: &state{Out: []edge{{
-			Expr: literalExp('b'),
+			Expr: literalExp('a'),
 			State: &state{Out: []edge{{
-				Expr: literalExp('c'),
+				Expr: literalExp('b'),
 				State: &state{Out: []edge{{
-					Expr: literalExp('/'),
-					State: &state{Out: []edge{
-						{Expr: literalExp('d'), State: &state{}},
-						{Expr: literalExp('e'), State: &state{}},
-					}},
+					Expr: literalExp('c'),
+					State: &state{Out: []edge{{
+						Expr: literalExp('/'),
+						State: &state{Out: []edge{
+							{Expr: literalExp('d'), State: &state{}},
+							{Expr: literalExp('e'), State: &state{}},
+						}},
+					}}},
 				}}},
 			}}},
 		}}},

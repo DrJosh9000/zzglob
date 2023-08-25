@@ -3,36 +3,34 @@ package zzglob
 
 import (
 	"io/fs"
-	"path/filepath"
 )
 
-// Glob globs for files matching the pattern.
-func Glob(pattern string, f fs.WalkDirFunc) error {
-	root, _, err := parse(pattern)
+// Glob globs for files matching the pattern in a filesystem.
+func Glob(fsys fs.FS, pattern string, f fs.WalkDirFunc) error {
+	root, start, err := parse(pattern)
 	if err != nil {
 		return err
 	}
 
-	// Roots holds roots to walk.
 	// New roots are added in order to traverse symlinks.
-	roots := []string{root}
-	for len(roots) > 0 {
-		root := roots[0]
-		roots = roots[1:]
+	type globState struct {
+		root   string
+		states map[*state]struct{}
+	}
+	queue := []globState{{root, singleton(start)}}
+	for len(queue) > 0 {
+		gs := queue[0]
+		queue = queue[1:]
 
-		if err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
+		if err := fs.WalkDir(fsys, root, func(path string, d fs.DirEntry, err error) error {
+			out := matchSegment(gs.states, path)
+			if len(out) == 0 && d.IsDir() {
+				// Skip - not interested in anything in this directory.
+				return fs.SkipDir
 			}
-
-			// if pattern.match(path) {
-			// 	if err := f(path, d, err); err != nil {
-			// 		return err
-			// 	}
-			// }
-			// if pattern.partialMatch(path) {
-			// 	// something like that
-			// }
+			if err != nil {
+				return f(path, d, err)
+			}
 
 			return nil
 

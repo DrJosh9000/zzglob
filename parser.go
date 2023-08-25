@@ -7,26 +7,43 @@ import (
 
 // parse converts a pattern into a finite automaton.
 func parse(pattern string) (string, *state, error) {
+	// tokenise classifies each rune as literal or punctuation
 	tks := tokenise(pattern)
-	// var root strings.Builder
-	// for _, t := range tks {
-	// 	l, ok := t.(literal)
-	// 	if !ok {
-	// 		break
-	// 	}
-	// 	root.WriteRune(rune(l))
-	// }
-	// if root.String() == pattern {
-	// 	return pattern, nil, nil
-	// }
 
-	// TODO: handle finding the root
-	n, _, _, err := parseSequence(&tks, false)
+	// Find the root of the path. This is where directory walking starts.
+	root := findRoot(tks)
+
+	// Convert the rest of the sequence into a DFA.
+	n, _, _, err := parseSequence(tks, false)
 	if err != nil {
 		return "", nil, err
 	}
 	reduce(n)
-	return "", n, nil
+	return root, n, nil
+}
+
+// findRoot returns the longest prefix consisting of literals, up to (and
+// including) the final path separator. tks is trimmed to be the remainder of
+// the pattern.
+func findRoot(tks *tokens) string {
+	var root []rune
+	lastSlash := -1
+	for i, t := range *tks {
+		l, ok := t.(literal)
+		if !ok {
+			break
+		}
+		if l == '/' {
+			lastSlash = i
+		}
+		root = append(root, rune(l))
+	}
+	if lastSlash < 0 {
+		// No slash, no root
+		return ""
+	}
+	*tks = (*tks)[lastSlash+1:]
+	return string(root[:lastSlash+1])
 }
 
 // reduce recursively eliminates any edges with nil expression.
