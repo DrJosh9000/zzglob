@@ -9,11 +9,11 @@ import (
 func TestTokeniser(t *testing.T) {
 	tests := []struct {
 		pattern string
-		want    tokens
+		want    *tokens
 	}{
 		{
 			pattern: "ab/cde",
-			want: tokens{
+			want: &tokens{
 				literal('a'),
 				literal('b'),
 				literal('/'),
@@ -24,7 +24,7 @@ func TestTokeniser(t *testing.T) {
 		},
 		{
 			pattern: "\\ jam\\",
-			want: tokens{
+			want: &tokens{
 				literal(' '),
 				literal('j'),
 				literal('a'),
@@ -34,7 +34,7 @@ func TestTokeniser(t *testing.T) {
 		},
 		{
 			pattern: "* or ** or \\*? *",
-			want: tokens{
+			want: &tokens{
 				punctuation('*'),
 				literal(' '),
 				literal('o'),
@@ -53,7 +53,7 @@ func TestTokeniser(t *testing.T) {
 		},
 		{
 			pattern: "{a,b,c}[d*\\]e]",
-			want: tokens{
+			want: &tokens{
 				punctuation('{'),
 				literal('a'),
 				punctuation(','),

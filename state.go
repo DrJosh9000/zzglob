@@ -1,6 +1,10 @@
 package zzglob
 
-import "strings"
+import (
+	"fmt"
+	"io"
+	"strings"
+)
 
 type state struct {
 	Out []edge
@@ -12,6 +16,34 @@ type edge struct {
 }
 
 func (s *state) terminal() bool { return len(s.Out) == 0 }
+
+func writeDot(w io.Writer, start *state) error {
+	seen := make(map[*state]bool)
+	q := []*state{start}
+	for len(q) > 0 {
+		s := q[0]
+		q = q[1:]
+
+		if seen[s] {
+			continue
+		}
+		seen[s] = true
+
+		if _, err := fmt.Fprintf(w, "state_%p [label=\"\"];\n", s); err != nil {
+			return err
+		}
+		for _, e := range s.Out {
+			if _, err := fmt.Fprintf(w, "state_%p -> state_%p [label=\"%v\"];\n", s, e.State, e.Expr); err != nil {
+				return err
+			}
+			if seen[e.State] {
+				continue
+			}
+			q = append(q, e.State)
+		}
+	}
+	return nil
+}
 
 func matchSegment(start map[*state]struct{}, segment string) map[*state]struct{} {
 	a := make(map[*state]struct{}, len(start))
@@ -26,14 +58,11 @@ func matchSegment(start map[*state]struct{}, segment string) map[*state]struct{}
 		}
 		for n := range a {
 			for _, e := range n.Out {
-				matched, keep := e.Expr.match(r)
+				matched := e.Expr.match(r)
 				if !matched {
 					continue
 				}
 				b[e.State] = struct{}{}
-				if keep {
-					b[n] = struct{}{}
-				}
 			}
 		}
 		a, b = b, a

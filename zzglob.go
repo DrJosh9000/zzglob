@@ -3,14 +3,18 @@ package zzglob
 
 import (
 	"io/fs"
+	"os"
+	"path"
 )
 
 // Glob globs for files matching the pattern in a filesystem.
-func Glob(fsys fs.FS, pattern string, f fs.WalkDirFunc, traverseSymlinks bool) error {
+func Glob(pattern string, f fs.WalkDirFunc, traverseSymlinks bool) error {
 	root, start, err := parse(pattern)
 	if err != nil {
 		return err
 	}
+
+	//writeDot(os.Stdout, start)
 
 	// This is a queue of roots, and the partial matching states to get to that
 	// root.
@@ -24,13 +28,22 @@ func Glob(fsys fs.FS, pattern string, f fs.WalkDirFunc, traverseSymlinks bool) e
 		gs := queue[0]
 		queue = queue[1:]
 
-		if err := fs.WalkDir(fsys, root, func(path string, d fs.DirEntry, err error) error {
-			// Match some of the path against the pattern.
-			states := matchSegment(gs.states, path)
+		if err := fs.WalkDir(os.DirFS(gs.root), ".", func(p string, d fs.DirEntry, err error) error {
+			// Yes yes, very good.
+			if p == "." {
+				return nil
+			}
 
-			// Did it match in any way? The caller eagerly wants to know.
+			// Match some of the path against the pattern.
+			states := matchSegment(gs.states, p)
+
+			// Join it back onto root, for passing back to f and for other
+			// operations.
+			p = path.Join(gs.root, p)
+
+			// Did it match in any way?
 			if len(states) == 0 {
-				if d.IsDir() {
+				if d != nil && d.IsDir() {
 					// Skip - not interested in anything in this directory.
 					return fs.SkipDir
 				}
@@ -42,7 +55,7 @@ func Glob(fsys fs.FS, pattern string, f fs.WalkDirFunc, traverseSymlinks bool) e
 
 			if err != nil {
 				// Report the error to the callback.
-				return f(path, d, err)
+				return f(p, d, err)
 			}
 
 			// So we matched, either partially or fully.
@@ -57,15 +70,23 @@ func Glob(fsys fs.FS, pattern string, f fs.WalkDirFunc, traverseSymlinks bool) e
 			// Did the pattern match completely?
 			if terminal {
 				// Give it to the callback.
-				return f(path, d, err)
+				return f(p, d, err)
 			}
 
 			// The pattern matched only partially.
 			// Are we traversing symlinks? Is it a symlink?
 			if traverseSymlinks && d.Type()&fs.ModeSymlink != 0 {
+				// There is no fs.ReadLinkFS, therefore we need to use os...
+				// https://github.com/golang/go/issues/49580
+				target, err := os.Readlink(p)
+				if err != nil {
+					// Report the error to the callback.
+					return f(p, d, err)
+				}
+
 				// Walk the symlink by enqueueing a new root.
 				queue = append(queue, globState{
-					root:   path,
+					root:   target,
 					states: states,
 				})
 			}

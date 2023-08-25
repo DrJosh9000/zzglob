@@ -22,9 +22,8 @@ func parse(pattern string) (string, *state, error) {
 	return root, n, nil
 }
 
-// findRoot returns the longest prefix consisting of literals, up to (and
-// including) the final path separator. tks is trimmed to be the remainder of
-// the pattern.
+// findRoot returns the longest prefix consisting of literals, up to (including)
+// the final path separator. tks is trimmed to be the remainder of the pattern.
 func findRoot(tks *tokens) string {
 	var root []rune
 	lastSlash := -1
@@ -50,10 +49,9 @@ func findRoot(tks *tokens) string {
 func reduce(n *state) {
 	var enew []edge
 	for _, e := range n.Out {
-		if e.State == nil {
-			continue
+		if n != e.State {
+			reduce(e.State)
 		}
-		reduce(e.State)
 		if e.Expr == nil {
 			// e is an expressionless edge. Using the next node's edges.
 			enew = append(enew, e.State.Out...)
@@ -90,10 +88,16 @@ func parseSequence(tkns *tokens, insideAlt bool) (start, end *state, endedWith t
 		case punctuation:
 			switch t {
 			case '*':
-				appendExp(starExp{})
+				end.Out = append(end.Out, edge{
+					Expr:  starExp{},
+					State: end,
+				})
 
 			case '⁑':
-				appendExp(doubleStarExp{})
+				end.Out = append(end.Out, edge{
+					Expr:  doubleStarExp{},
+					State: end,
+				})
 
 			case '?':
 				appendExp(questionExp{})

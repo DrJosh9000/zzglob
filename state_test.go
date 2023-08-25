@@ -31,7 +31,7 @@ func TestMatch(t *testing.T) {
 		}
 
 		if got, want := match(root, start, test.path), test.want; got != want {
-			t.Errorf("match(start, %q) = %v, want %v", test.path, got, want)
+			t.Errorf("match(%q, start, %q) = %v, want %v", root, test.path, got, want)
 		}
 	}
 }
