@@ -24,6 +24,8 @@ func Parse(pattern string) (*Pattern, error) {
 		}, nil
 	}
 
+	*tks = preprocess(*tks)
+
 	// Find the root of the path. This is where directory walking starts.
 	root := findRoot(tks)
 
@@ -110,11 +112,46 @@ func (p *Pattern) WriteDot(w io.Writer) error {
 	return nil
 }
 
-// preprocess adjusts the token sequence in the following ways:
-// - /**/ becomes {/,/**/}
-// func preprocess(in tokens) tokens {
-// 	out := make([]tokens, 0, len(in))
-// }
+// preprocess preprocesses the token sequence in the following ways:
+// - /⁑/ becomes {/,/⁑/}
+func preprocess(in tokens) tokens {
+	out := make([]token, 0, len(in))
+	// It's one subsequence find'n'replace, how hard can it be?
+	toFind := []token{
+		literal('/'),
+		punctuation('⁑'),
+		literal('/'),
+	}
+	sub := []token{
+		punctuation('{'),
+		literal('/'),
+		punctuation(','),
+		literal('/'),
+		punctuation('⁑'),
+		literal('/'),
+		punctuation('}'),
+	}
+	next := 0
+	for _, t := range in {
+		if t == toFind[next] {
+			next++
+			if next == len(toFind) {
+				out = append(out, sub...)
+				next = 0
+			}
+		} else {
+			if next != 0 {
+				out = append(out, toFind[:next]...)
+				next = 0
+			}
+			out = append(out, t)
+		}
+	}
+	if next != 0 {
+		out = append(out, toFind[:next]...)
+	}
+	return out
+}
 
 // allLiteral reports if the tokens are all literals.
 func allLiteral(in tokens) bool {

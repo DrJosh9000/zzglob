@@ -1,6 +1,9 @@
 package zzglob
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
 
 func TestMatch(t *testing.T) {
 	tests := []struct {
@@ -22,6 +25,10 @@ func TestMatch(t *testing.T) {
 		{"a**b", "a/b", true},
 		{"a**b", "a/c/b", true},
 		{"a**b", "a/b/c", false},
+		{"a/**/b", "a/b", true},
+		{"a/**/b", "a/c/b", true},
+		{"a/**/b", "a/b/c", false},
+		{"a/**/b", "a/c/d/e/f/b", true},
 	}
 
 	for _, test := range tests {
@@ -31,7 +38,8 @@ func TestMatch(t *testing.T) {
 		}
 
 		if got, want := p.Match(test.path), test.want; got != want {
-			t.Errorf("p.Match(%q) = %v, want %v", test.path, got, want)
+			t.Errorf("(%q).Match(%q) = %v, want %v", test.pattern, test.path, got, want)
+			p.WriteDot(os.Stderr)
 		}
 	}
 }

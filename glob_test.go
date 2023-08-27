@@ -29,6 +29,7 @@ func TestGlob(t *testing.T) {
 
 	want := []walkFuncArgs{
 		{Path: "fixtures/a/b/cd/elf/g/j/absurdity/m"},
+		{Path: "fixtures/a/b/cod/erf/h/k/m"},
 		{Path: "fixtures/a/b/cod/erf/h/k/n/m"},
 	}
 
