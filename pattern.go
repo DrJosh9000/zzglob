@@ -187,21 +187,44 @@ func findRoot(tks *tokens) string {
 	return string(root[:lastSlash+1])
 }
 
-// reduce recursively eliminates any edges with nil expression.
-func reduce(n *state) {
-	var enew []edge
-	for _, e := range n.Out {
-		if n != e.State {
-			reduce(e.State)
-		}
-		if e.Expr == nil {
-			// e is an expressionless edge. Using the next node's edges.
-			enew = append(enew, e.State.Out...)
+// reduce eliminates any edges with nil expression (that it can find using a
+// breadth-first search).
+func reduce(initial *state) {
+	seen := make(map[*state]bool)
+	q := []*state{initial}
+	for len(q) > 0 {
+		s := q[0]
+		q = q[1:]
+
+		if seen[s] {
 			continue
 		}
-		enew = append(enew, e)
+		seen[s] = true
+
+		var enew []edge
+		for _, e := range s.Out {
+			// If e goes to a state that itself has outdegree 1 and _that_ edge
+			// has nil expression, then replace the target state of e with
+			// the target of that subsequent edge. We can do this repeatedly.
+			for e.State != nil && len(e.State.Out) == 1 && e.State.Out[0].Expr == nil {
+				e.State = e.State.Out[0].State
+			}
+
+			// If e is an expressionless edge, use the next node's edges.
+			if e.Expr == nil {
+				enew = append(enew, e.State.Out...)
+				continue
+			}
+			enew = append(enew, e)
+		}
+		s.Out = enew
+
+		for _, e := range s.Out {
+			if !seen[e.State] {
+				q = append(q, e.State)
+			}
+		}
 	}
-	n.Out = enew
 }
 
 // parseSequence parses a sequence into a finite automaton.
