@@ -1,6 +1,7 @@
 package zzglob
 
 import (
+	"io"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -48,5 +49,21 @@ func TestParse(t *testing.T) {
 
 	if diff := cmp.Diff(got.initial, want.initial); diff != "" {
 		t.Errorf("Pattern initial diff (-got +want):\n%s", diff)
+	}
+}
+
+func TestWriteDotSmoke(t *testing.T) {
+	tests := []string{
+		"a/b",
+		"a/b*c/d?e/{f,g}/[ij]/**/k",
+	}
+	for _, pattern := range tests {
+		p, err := Parse(pattern)
+		if err != nil {
+			t.Fatalf("Parse(%q) error = %v", pattern, err)
+		}
+		if err := p.WriteDot(io.Discard); err != nil {
+			t.Errorf("(%q).WriteDot(io.Discard) = %v", pattern, err)
+		}
 	}
 }

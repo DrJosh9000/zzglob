@@ -1,7 +1,6 @@
 package zzglob
 
 import (
-	"os"
 	"testing"
 )
 
@@ -10,6 +9,8 @@ func TestMatch(t *testing.T) {
 		pattern, path string
 		want          bool
 	}{
+		{"a/b", "a/b", true},
+		{"a/b", "a/b/", false},
 		{"a*b", "acccccb", true},
 		{"a*b", "abc", false},
 		{"a*b", "a/b", false},
@@ -39,7 +40,7 @@ func TestMatch(t *testing.T) {
 
 		if got, want := p.Match(test.path), test.want; got != want {
 			t.Errorf("(%q).Match(%q) = %v, want %v", test.pattern, test.path, got, want)
-			p.WriteDot(os.Stderr)
+			//p.WriteDot(os.Stderr)
 		}
 	}
 }
