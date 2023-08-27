@@ -13,12 +13,17 @@ type walkFuncArgs struct {
 }
 
 func TestGlob(t *testing.T) {
+	pattern := "fixtures/a/b/c*d/e?f/[ghi]/{j,k,l}/**/m"
+	p, err := Parse(pattern)
+	if err != nil {
+		t.Fatalf("Parse(%q) = %v", pattern, err)
+	}
+
 	var got []walkFuncArgs
-	err := Glob("fixtures/a/b/c*d/e?f/[ghi]/{j,k,l}/**/m", func(path string, d fs.DirEntry, err error) error {
+	if err := p.Glob(func(path string, d fs.DirEntry, err error) error {
 		got = append(got, walkFuncArgs{path, err})
 		return nil
-	}, true)
-	if err != nil {
+	}, true); err != nil {
 		t.Fatalf("Glob(...) = %v", err)
 	}
 

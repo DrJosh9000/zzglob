@@ -8,21 +8,14 @@ import (
 )
 
 // Glob globs for files matching the pattern in a filesystem.
-func Glob(pattern string, f fs.WalkDirFunc, traverseSymlinks bool) error {
-	root, start, err := parse(pattern)
-	if err != nil {
-		return err
-	}
-
-	//writeDot(os.Stdout, start)
-
+func (p *Pattern) Glob(f fs.WalkDirFunc, traverseSymlinks bool) error {
 	// This is a queue of roots, and the partial matching states to get to that
 	// root.
 	type globState struct {
 		root   string
 		states map[*state]struct{}
 	}
-	queue := []globState{{root, singleton(start)}}
+	queue := []globState{{p.root, singleton(p.initial)}}
 
 	for len(queue) > 0 {
 		gs := queue[0]

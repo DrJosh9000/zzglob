@@ -5,23 +5,6 @@ import (
 	"fmt"
 )
 
-// parse converts a pattern into a finite automaton.
-func parse(pattern string) (string, *state, error) {
-	// tokenise classifies each rune as literal or punctuation
-	tks := tokenise(pattern)
-
-	// Find the root of the path. This is where directory walking starts.
-	root := findRoot(tks)
-
-	// Convert the rest of the sequence into a DFA.
-	n, _, _, err := parseSequence(tks, false)
-	if err != nil {
-		return "", nil, err
-	}
-	reduce(n)
-	return root, n, nil
-}
-
 // findRoot returns the longest prefix consisting of literals, up to (including)
 // the final path separator. tks is trimmed to be the remainder of the pattern.
 func findRoot(tks *tokens) string {

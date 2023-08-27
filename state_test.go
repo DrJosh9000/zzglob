@@ -25,13 +25,13 @@ func TestMatch(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		root, start, err := parse(test.pattern)
+		p, err := Parse(test.pattern)
 		if err != nil {
 			t.Fatalf("parse(%q) error = %v", test.pattern, err)
 		}
 
-		if got, want := match(root, start, test.path), test.want; got != want {
-			t.Errorf("match(%q, start, %q) = %v, want %v", root, test.path, got, want)
+		if got, want := p.Match(test.path), test.want; got != want {
+			t.Errorf("p.Match(%q) = %v, want %v", test.path, got, want)
 		}
 	}
 }
