@@ -1,20 +1,14 @@
 package zzglob
 
-import (
-	"strings"
-)
-
-type state struct {
-	Out []edge
-}
-
-type edge struct {
-	Expr  expression
-	State *state
-}
+import "strings"
 
 // Match reports if the path matches the pattern.
 func (p *Pattern) Match(path string) bool {
+	if p.initial == nil {
+		// no state machine, only root
+		return path == p.root
+	}
+
 	rem, ok := strings.CutPrefix(path, p.root)
 	if !ok {
 		return false
@@ -53,10 +47,3 @@ func matchSegment(initial map[*state]struct{}, segment string) map[*state]struct
 	}
 	return a
 }
-
-// singleton wraps a single value into a map used as a set.
-func singleton[K comparable](k K) map[K]struct{} {
-	return map[K]struct{}{k: {}}
-}
-
-func (s *state) terminal() bool { return len(s.Out) == 0 }

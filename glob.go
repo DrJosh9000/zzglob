@@ -9,6 +9,12 @@ import (
 
 // Glob globs for files matching the pattern in a filesystem.
 func (p *Pattern) Glob(f fs.WalkDirFunc, traverseSymlinks bool) error {
+	if p.initial == nil {
+		// TODO: think about this case more -
+		// synthesise DirEntry? handle fs.SkipDir / fs.SkipAll?
+		return f(p.root, nil, nil)
+	}
+
 	// This is a queue of roots, and the partial matching states to get to that
 	// root.
 	type globState struct {
