@@ -24,8 +24,8 @@ diagram, by calling `Pattern.WriteDot`.
 ## In progress
 
 * <abbr title="WIP">⌚️</abbr> Improving the tests.
-* <abbr title="Thinking about">🧠</abbr> Support globbing over `io.FS`, not just
-  the host filesystem.
+* <abbr title="Thinking about">🧠</abbr> Support globbing over any `io.FS`, not
+  just the host filesystem.
 * <abbr title="Thinking about">🧠</abbr> Add support for
   [even more syntax](https://www.digitalocean.com/community/tools/glob)
 
