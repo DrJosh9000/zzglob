@@ -1,5 +1,7 @@
 # zzglob
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/DrJosh9000/zzglob.svg)](https://pkg.go.dev/github.com/DrJosh9000/zzglob)
+
 A better glob for Go?
 
 ## Goals
@@ -13,6 +15,11 @@ A better glob for Go?
   not other directories.
 * <abbr title="Done">✅</abbr> Pass walk errors (e.g. permissions errors) to the
   callback.
+
+Also the implementation shouldn't be totally inscruitable. It is based on a
+state machine, and I have attempted to cleanly separate each parsing phase.
+You can convert a pattern to GraphViz format, that you can then convert into a
+diagram, by calling `Pattern.WriteDot`.
 
 ## In progress
 
