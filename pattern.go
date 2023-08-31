@@ -52,17 +52,17 @@ func MustParse(pattern string) *Pattern {
 
 // WriteDot writes a digraph representing the automaton to the writer
 // (in GraphViz syntax).
-func (p *Pattern) WriteDot(w io.Writer) error {
+func (p *Pattern) WriteDot(w io.Writer, hilite map[*state]struct{}) error {
 	if _, err := fmt.Fprintln(w, "digraph {\n\trankdir=LR;"); err != nil {
 		return err
 	}
 
-	if _, err := fmt.Fprintln(w, "\tinitial [label=\"\", style=\"invis\"];"); err != nil {
+	if _, err := fmt.Fprintln(w, "\tinitial [label=\"\", style=invis];"); err != nil {
 		return err
 	}
 
 	if p.initial == nil {
-		if _, err := fmt.Fprintln(w, "\tterminal [label=\"\", shape=\"doublecircle\"];"); err != nil {
+		if _, err := fmt.Fprintln(w, "\tterminal [label=\"\", shape=doublecircle];"); err != nil {
 			return err
 		}
 		if _, err := fmt.Fprintf(w, "\tinitial -> terminal [label=\"%s\"];\n", p.root); err != nil {
@@ -93,7 +93,11 @@ func (p *Pattern) WriteDot(w io.Writer) error {
 		if s.terminal() {
 			shape = "doublecircle"
 		}
-		if _, err := fmt.Fprintf(w, "\tstate_%p [label=\"\", shape=\"%s\"];\n", s, shape); err != nil {
+		fill := "white"
+		if _, ok := hilite[s]; ok {
+			fill = "green"
+		}
+		if _, err := fmt.Fprintf(w, "\tstate_%p [label=\"\", shape=%s, style=filled, fillcolor=%s];\n", s, shape, fill); err != nil {
 			return err
 		}
 		for _, e := range s.Out {

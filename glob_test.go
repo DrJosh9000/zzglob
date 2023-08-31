@@ -31,6 +31,8 @@ func TestGlob(t *testing.T) {
 		{Path: "fixtures/a/b/cd/elf/g/j/absurdity/m"},
 		{Path: "fixtures/a/b/cod/erf/h/k/m"},
 		{Path: "fixtures/a/b/cod/erf/h/k/n/m"},
+		{Path: "fixtures/a/b/cid/erf/h/k/m"},
+		{Path: "fixtures/a/b/cid/erf/h/k/n/m"},
 	}
 
 	if diff := cmp.Diff(got, want); diff != "" {

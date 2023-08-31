@@ -19,7 +19,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := p.WriteDot(os.Stdout); err != nil {
+	if err := p.WriteDot(os.Stdout, nil); err != nil {
 		fmt.Fprintf(os.Stderr, "Couldn't write Dot output: %v\n", err)
 		os.Exit(1)
 	}

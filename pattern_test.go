@@ -62,7 +62,7 @@ func TestWriteDotSmoke(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Parse(%q) error = %v", pattern, err)
 		}
-		if err := p.WriteDot(io.Discard); err != nil {
+		if err := p.WriteDot(io.Discard, nil); err != nil {
 			t.Errorf("(%q).WriteDot(io.Discard) = %v", pattern, err)
 		}
 	}
