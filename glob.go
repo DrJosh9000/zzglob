@@ -12,6 +12,10 @@ func (p *Pattern) Glob(f fs.WalkDirFunc, traverseSymlinks bool) error {
 	if p.initial == nil {
 		// TODO: think about this case more -
 		// synthesise DirEntry? handle fs.SkipDir / fs.SkipAll?
+		fi, err := os.Stat(p.root)
+		if err != nil {
+			return f(p.root, fs.FileInfoToDirEntry(fi), err)
+		}
 		return f(p.root, nil, nil)
 	}
 
