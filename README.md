@@ -19,7 +19,14 @@ A better glob for Go?
 Also the implementation shouldn't be totally inscruitable. It is based on a
 state machine, and I have attempted to cleanly separate each parsing phase.
 You can convert a pattern to GraphViz format, that you can then convert into a
-diagram, by calling `Pattern.WriteDot`.
+diagram, by calling `Pattern.WriteDot`. `zzglob` includes a tool called `zzdot`
+which can do this for you, e.g.:
+
+```shell
+go run cmd/zzdot/zzdot.go '[abcd]{*g,h*,i/j}/**/k' | dot -Tsvg > example.svg
+```
+
+![Example.svg](example.svg)
 
 ## In progress
 
