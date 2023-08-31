@@ -33,8 +33,21 @@ func matchSegment(initial map[*state]struct{}, segment string) map[*state]struct
 		if len(a) == 0 {
 			return nil
 		}
-		for n := range a {
+		for len(a) > 0 {
+			// Treating a as a "queue", pop one state (n).
+			var n *state
+			for x := range a {
+				n = x
+				break
+			}
+			delete(a, n)
 			for _, e := range n.Out {
+				if e.Expr == nil {
+					// Nil expression means this edge should be followed
+					// right away.
+					a[e.State] = struct{}{}
+					continue
+				}
 				matched := e.Expr.match(r)
 				if !matched {
 					continue
@@ -43,14 +56,6 @@ func matchSegment(initial map[*state]struct{}, segment string) map[*state]struct
 			}
 		}
 		a, b = b, a
-		clear(b)
 	}
 	return a
-}
-
-// This function not needed in Go 1.21.
-func clear[K comparable, V any, M ~map[K]V](m M) {
-	for k := range m {
-		delete(m, k)
-	}
 }
