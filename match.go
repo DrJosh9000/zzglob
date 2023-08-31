@@ -47,3 +47,10 @@ func matchSegment(initial map[*state]struct{}, segment string) map[*state]struct
 	}
 	return a
 }
+
+// This function not needed in Go 1.21.
+func clear[K comparable, V any, M ~map[K]V](m M) {
+	for k := range m {
+		delete(m, k)
+	}
+}
