@@ -34,8 +34,14 @@ func TestParse(t *testing.T) {
 					State: &state{Out: []edge{{
 						Expr: literalExp('/'),
 						State: &state{Out: []edge{
-							{Expr: literalExp('d'), State: &state{}},
-							{Expr: literalExp('e'), State: &state{}},
+							{
+								Expr:  literalExp('d'),
+								State: &state{Terminal: true},
+							},
+							{
+								Expr:  literalExp('e'),
+								State: &state{Terminal: true},
+							},
 						}},
 					}}},
 				}}},

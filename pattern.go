@@ -30,11 +30,15 @@ func Parse(pattern string) (*Pattern, error) {
 	root := findRoot(tks)
 
 	// Convert the rest of the sequence into a DFA.
-	initial, _, _, err := parseSequence(tks, false)
+	initial, terminal, _, err := parseSequence(tks, false)
 	if err != nil {
 		return nil, err
 	}
+
+	terminal.Terminal = true
+
 	reduce(initial)
+
 	return &Pattern{
 		root:    root,
 		initial: initial,
@@ -90,7 +94,7 @@ func (p *Pattern) WriteDot(w io.Writer, hilite map[*state]struct{}) error {
 		seen[s] = true
 
 		shape := "circle"
-		if s.terminal() {
+		if s.Terminal {
 			shape = "doublecircle"
 		}
 		fill := "white"
@@ -214,9 +218,16 @@ func reduce(initial *state) {
 				e.State = e.State.Out[0].State
 			}
 
-			// If e is an expressionless edge, use the next node's edges.
+			// If e is an expressionless edge, use the next state's edges.
+			// (If we can jump to the next state immediately, then we can
+			// match its out edge immediately.)
 			if e.Expr == nil {
 				enew = append(enew, e.State.Out...)
+				// If we can jump to the next state immediately, and that state
+				// is terminal, then this state is also terminal.
+				if e.State.Terminal {
+					s.Terminal = true
+				}
 				continue
 			}
 			enew = append(enew, e)
@@ -363,10 +374,9 @@ func parseCharClass(tks *tokens, from *state) (end *state, err error) {
 }
 
 type state struct {
-	Out []edge
+	Out      []edge
+	Terminal bool
 }
-
-func (s *state) terminal() bool { return len(s.Out) == 0 }
 
 type edge struct {
 	Expr  expression

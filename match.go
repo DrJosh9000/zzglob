@@ -15,7 +15,7 @@ func (p *Pattern) Match(path string) bool {
 	}
 	set := matchSegment(singleton(p.initial), rem)
 	for n := range set {
-		if n.terminal() {
+		if n.Terminal {
 			return true
 		}
 	}

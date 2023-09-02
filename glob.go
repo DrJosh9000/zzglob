@@ -30,7 +30,7 @@ func (p *Pattern) Glob(f fs.WalkDirFunc, traverseSymlinks bool) error {
 		gs := queue[0]
 		queue = queue[1:]
 
-		println("starting walk at", gs.root, "with", len(gs.states), "states")
+		//println("starting walk at", gs.root, "with", len(gs.states), "states")
 
 		if err := fs.WalkDir(os.DirFS(gs.root), ".", func(fp string, d fs.DirEntry, err error) error {
 			// Yes yes, very good.
@@ -77,7 +77,7 @@ func (p *Pattern) Glob(f fs.WalkDirFunc, traverseSymlinks bool) error {
 			// So we matched, either partially or fully.
 			terminal := false
 			for s := range states {
-				if s.terminal() {
+				if s.Terminal {
 					terminal = true
 					break
 				}

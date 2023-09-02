@@ -30,12 +30,28 @@ func TestMatch(t *testing.T) {
 		{"a/**/b", "a/c/b", true},
 		{"a/**/b", "a/b/c", false},
 		{"a/**/b", "a/c/d/e/f/b", true},
+		{"*", "a", true},
+		{"*", "abcde", true},
+		{"*", "abc/", false},
+		{"**", "a", true},
+		{"**", "abcde", true},
+		{"**", "abc/", true},
+		{"{a,b*}", "a", true},
+		{"{a,b*}", "b", true},
+		{"{a,b*}", "ac", false},
+		{"{a,b*}", "bc", true},
+		{"{a,b*}", "bcc/cc", false},
+		{"{a,b**}", "a", true},
+		{"{a,b**}", "b", true},
+		{"{a,b**}", "ac", false},
+		{"{a,b**}", "bc", true},
+		{"{a,b**}", "bcc/cc", true},
 	}
 
 	for _, test := range tests {
 		p, err := Parse(test.pattern)
 		if err != nil {
-			t.Fatalf("parse(%q) error = %v", test.pattern, err)
+			t.Fatalf("Parse(%q) error = %v", test.pattern, err)
 		}
 
 		if got, want := p.Match(test.path), test.want; got != want {
