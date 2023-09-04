@@ -122,3 +122,38 @@ func TestGlob_SingleFile(t *testing.T) {
 		t.Errorf("walked paths diff (-got +want):\n%s", diff)
 	}
 }
+
+func TestGlob_EmptyRoot(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("os.Getwd() error = %v", err)
+	}
+	defer os.Chdir(wd)
+	os.Chdir("fixtures")
+
+	pattern := "**/m"
+	p, err := Parse(pattern)
+	if err != nil {
+		t.Fatalf("Parse(%q) = %v", pattern, err)
+	}
+
+	var got walkFuncCalls
+	if err := p.Glob(got.walkFunc, WithTraceLogs(os.Stderr)); err != nil {
+		t.Fatalf("Glob(...) = %v", err)
+	}
+
+	want := walkFuncCalls{
+		{Path: "a/b/cad/m"},
+		{Path: "a/b/cd/elf/g/j/absurdity/m"},
+		{Path: "a/b/cid/erf/h/k/m"},
+		{Path: "a/b/cid/erf/h/k/n/m"},
+		{Path: "a/b/cod/erf/h/k/m"},
+		{Path: "a/b/cod/erf/h/k/n/m"},
+		{Path: "a/b/cod/erf/i/m"},
+		{Path: "a/b/cod/erf/i/n/m"},
+	}
+
+	if diff := cmp.Diff(got, want); diff != "" {
+		t.Errorf("walked paths diff (-got +want):\n%s", diff)
+	}
+}

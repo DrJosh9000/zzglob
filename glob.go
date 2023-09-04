@@ -48,6 +48,10 @@ func (p *Pattern) Glob(f fs.WalkDirFunc, opts ...GlobOption) error {
 			return f(osRoot, fs.FileInfoToDirEntry(fi), err)
 		}
 
+		if osRoot == "" {
+			osRoot = "."
+		}
+
 		gs.cfg.filesystem = os.DirFS(osRoot)
 
 	} else {
