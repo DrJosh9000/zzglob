@@ -15,6 +15,8 @@ A better glob for Go?
   not other directories.
 * <abbr title="Done">✅</abbr> Pass walk errors (e.g. permissions errors) to the
   callback.
+* <abbr title="Done">✅</abbr> Supports globbing over any `io.FS`, not just the
+  host filesystem.
 
 Also the implementation shouldn't be totally inscruitable. It is based on a
 state machine, and I have attempted to cleanly separate each parsing phase.
@@ -31,8 +33,6 @@ go run cmd/zzdot/zzdot.go '[abcd]{*g,h*,i/j}/**/k' | dot -Tsvg > example.svg
 ## In progress
 
 * <abbr title="WIP">⌚️</abbr> Improving the tests.
-* <abbr title="Thinking about">🧠</abbr> Support globbing over any `io.FS`, not
-  just the host filesystem.
 * <abbr title="Thinking about">🧠</abbr> Add support for
   [even more syntax](https://www.digitalocean.com/community/tools/glob)
 

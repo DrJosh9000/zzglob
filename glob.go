@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io/fs"
 	"os"
-	"path"
 	"strings"
 )
 
@@ -27,8 +26,9 @@ func (p *Pattern) Glob(f fs.WalkDirFunc, opts ...GlobOption) error {
 		cfg: &globConfig{
 			TraverseSymlinks: true,
 			Callback:         f,
+			FS:               os.DirFS("."),
 		},
-		root:   p.root,
+		root:   strings.TrimSuffix(p.root, "/"),
 		states: singleton(p.initial),
 	}
 
@@ -36,8 +36,12 @@ func (p *Pattern) Glob(f fs.WalkDirFunc, opts ...GlobOption) error {
 		o(gs.cfg)
 	}
 
+	if gs.cfg.FS == nil {
+		return errors.New("nil filesystem in options to Glob")
+	}
+
 	//println("starting walk at", gs.root, "with", len(gs.states), "states")
-	return fs.WalkDir(os.DirFS(gs.root), ".", gs.walkDirFunc)
+	return fs.WalkDir(gs.cfg.FS, gs.root, gs.walkDirFunc)
 }
 
 // GlobOption functions optionally alter how Glob operates.
@@ -46,13 +50,21 @@ type GlobOption = func(*globConfig)
 type globConfig struct {
 	TraverseSymlinks bool
 	Callback         fs.WalkDirFunc
+	FS               fs.FS
+}
+
+// WithFilesystem allows overriding the default filesystem (os.DirFS(".")).
+func WithFilesystem(fs fs.FS) GlobOption {
+	return func(cfg *globConfig) {
+		cfg.FS = fs
+	}
 }
 
 // TraverseSymlinks enables or disables the traversal of symlinks during
 // globbing. It is enabled by default.
 func TraverseSymlinks(traverse bool) GlobOption {
-	return func(opts *globConfig) {
-		opts.TraverseSymlinks = traverse
+	return func(cfg *globConfig) {
+		cfg.TraverseSymlinks = traverse
 	}
 }
 
@@ -63,8 +75,8 @@ type globState struct {
 }
 
 func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
-	// Yes yes, very good.
-	if fp == "." {
+	if fp == gs.root {
+		// Yes...?
 		return nil
 	}
 
@@ -74,18 +86,17 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 		fp += "/"
 	}
 
+	trimmed := strings.TrimPrefix(fp, gs.root+"/")
+
 	// Match p against the state machine.
-	states := matchSegment(gs.states, fp)
+	states := matchSegment(gs.states, trimmed)
 
 	// Some debugging code that might be handy:
-	// println("matchSegment(", len(gs.states), fp, ") ->", len(states), "states")
+	//
+	println("matchSegment(", len(gs.states), trimmed, ") ->", len(states), "states")
 	// if len(states) > 0 {
 	// 	p.WriteDot(os.Stderr, states)
 	// }
-
-	// Join fp back onto root, for passing back to f and for other
-	// operations.
-	fp = path.Join(gs.root, fp)
 
 	// Did it match in any way?
 	if len(states) == 0 {
@@ -127,13 +138,7 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 	}
 
 	// It's all symlink handling from this point.
-
-	fi, err := os.Lstat(fp)
-	if err != nil {
-		// Can't lstat, can't tell if link.
-		return gs.cfg.Callback(fp, fs.FileInfoToDirEntry(fi), err)
-	}
-	if fi.Mode()&os.ModeSymlink != os.ModeSymlink {
+	if d != nil && d.Type()&fs.ModeSymlink != fs.ModeSymlink {
 		// Not a symlink.
 		return nil
 	}
@@ -153,5 +158,5 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 		states: states,
 	}
 	//println("starting walk at", next.root, "with", len(next.states), "states")
-	return fs.WalkDir(os.DirFS(next.root), ".", next.walkDirFunc)
+	return fs.WalkDir(gs.cfg.FS, next.root, next.walkDirFunc)
 }
