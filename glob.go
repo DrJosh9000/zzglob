@@ -11,6 +11,8 @@ import (
 	"strings"
 )
 
+const globSymlinkRecursionLimit = 1000
+
 // Glob globs for files matching the pattern in a filesystem.
 func (p *Pattern) Glob(f fs.WalkDirFunc, opts ...GlobOption) error {
 	if f == nil {
@@ -68,6 +70,7 @@ func (p *Pattern) Glob(f fs.WalkDirFunc, opts ...GlobOption) error {
 }
 
 type globState struct {
+	depth  int
 	cfg    *globConfig
 	root   string
 	states map[*state]struct{}
@@ -81,6 +84,11 @@ func (gs *globState) logf(f string, v ...any) {
 
 func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 	gs.logf("globState.walkDirFunc(%q, %v, %v)\n", fp, d, err)
+
+	if gs.depth > globSymlinkRecursionLimit {
+		return fmt.Errorf("recursion limit %d reached; possible symlink cycle", globSymlinkRecursionLimit)
+	}
+
 	if fp == "." {
 		gs.logf("fast path for .\n")
 		return nil
@@ -158,6 +166,7 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 	// fs.WalkDir doesn't walk symlinks unless it is the root path... in
 	// which case it does!
 	next := globState{
+		depth:  gs.depth + 1,
 		cfg:    gs.cfg,
 		root:   full,
 		states: states,
