@@ -186,7 +186,7 @@ func allLiteral(in tokens) bool {
 	return true
 }
 
-// findRoot returns the longest prefix consisting of literals, up to (including)
+// findRoot returns the longest prefix consisting of literals, up to (excluding)
 // the final path separator. tks is trimmed to be the remainder of the pattern.
 func findRoot(tks *tokens) string {
 	var root []rune
@@ -205,8 +205,8 @@ func findRoot(tks *tokens) string {
 		// No slash, no root
 		return ""
 	}
-	*tks = (*tks)[lastSlash+1:]
-	return string(root[:lastSlash+1])
+	*tks = (*tks)[lastSlash:]
+	return string(root[:lastSlash])
 }
 
 // reduce eliminates any edges with nil expression (that it can find using a

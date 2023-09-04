@@ -28,7 +28,7 @@ func (p *Pattern) Glob(f fs.WalkDirFunc, opts ...GlobOption) error {
 			Callback:         f,
 			FS:               os.DirFS("."),
 		},
-		root:   strings.TrimSuffix(p.root, "/"),
+		root:   p.root,
 		states: singleton(p.initial),
 	}
 
@@ -82,18 +82,22 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 
 	// Directories have a trailing slash for matching.
 	// (Symlinks to other directories won't get a slash here.)
-	if d != nil && d.IsDir() && !strings.HasSuffix(fp, "/") {
-		fp += "/"
-	}
 
-	trimmed := strings.TrimPrefix(fp, gs.root+"/")
+	trimmed := strings.TrimPrefix(fp, gs.root)
+
+	// println("trimmed =", trimmed)
 
 	// Match p against the state machine.
 	states := matchSegment(gs.states, trimmed)
 
+	// If it's a directory the pattern should match another /
+	if d != nil && d.IsDir() && !strings.HasSuffix(fp, "/") {
+		states = matchSegment(states, "/")
+	}
+
 	// Some debugging code that might be handy:
 	//
-	println("matchSegment(", len(gs.states), trimmed, ") ->", len(states), "states")
+	// println("matchSegment(", len(gs.states), trimmed, ") ->", len(states), "states")
 	// if len(states) > 0 {
 	// 	p.WriteDot(os.Stderr, states)
 	// }
@@ -143,12 +147,6 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 		return nil
 	}
 
-	// Make sure we're matching a directory here...
-	states = matchSegment(states, "/")
-	if len(states) == 0 {
-		return nil
-	}
-
 	// Walk the symlink by... recursion.
 	// fs.WalkDir doesn't walk symlinks unless it is the root path... in
 	// which case it does!
@@ -157,6 +155,6 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 		root:   fp,
 		states: states,
 	}
-	//println("starting walk at", next.root, "with", len(next.states), "states")
+	//println("walking symlink at", next.root, "with", len(next.states), "states")
 	return fs.WalkDir(gs.cfg.FS, next.root, next.walkDirFunc)
 }

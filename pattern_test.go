@@ -14,18 +14,25 @@ func TestParse(t *testing.T) {
 		t.Fatalf("Parse(%q) error = %v", input, err)
 	}
 
+	loop := &state{}
+
 	want := &Pattern{
-		root:    "x/y/z/",
-		initial: new(state),
+		root: "x/y/z",
+		initial: &state{
+			Out: []edge{{
+				Expr:  literalExp('/'),
+				State: loop,
+			}},
+		},
 	}
 
 	// stars form loops
-	want.initial.Out = append(want.initial.Out,
-		edge{
+	loop.Out = []edge{
+		{
 			Expr:  starExp{},
-			State: want.initial,
+			State: loop,
 		},
-		edge{
+		{
 			Expr: literalExp('a'),
 			State: &state{Out: []edge{{
 				Expr: literalExp('b'),
@@ -47,7 +54,7 @@ func TestParse(t *testing.T) {
 				}}},
 			}}},
 		},
-	)
+	}
 
 	if diff := cmp.Diff(got.root, want.root); diff != "" {
 		t.Errorf("Pattern root diff (-got +want):\n%s", diff)
