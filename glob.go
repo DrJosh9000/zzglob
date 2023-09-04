@@ -24,7 +24,7 @@ func (p *Pattern) Glob(f fs.WalkDirFunc, opts ...GlobOption) error {
 	}
 
 	gs := globState{
-		opts: &globConfig{
+		cfg: &globConfig{
 			TraverseSymlinks: true,
 			Callback:         f,
 		},
@@ -33,14 +33,14 @@ func (p *Pattern) Glob(f fs.WalkDirFunc, opts ...GlobOption) error {
 	}
 
 	for _, o := range opts {
-		o(gs.opts)
+		o(gs.cfg)
 	}
 
 	//println("starting walk at", gs.root, "with", len(gs.states), "states")
 	return fs.WalkDir(os.DirFS(gs.root), ".", gs.walkDirFunc)
 }
 
-// GlobOption is the type for options that apply to Glob.
+// GlobOption functions optionally alter how Glob operates.
 type GlobOption = func(*globConfig)
 
 type globConfig struct {
@@ -57,7 +57,7 @@ func TraverseSymlinks(traverse bool) GlobOption {
 }
 
 type globState struct {
-	opts   *globConfig
+	cfg    *globConfig
 	root   string
 	states map[*state]struct{}
 }
@@ -101,7 +101,7 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 
 	if err != nil {
 		// Report the error to the callback.
-		return gs.opts.Callback(fp, d, err)
+		return gs.cfg.Callback(fp, d, err)
 	}
 
 	// So we matched, either partially or fully.
@@ -116,21 +116,22 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 	// Did the pattern match completely?
 	if terminal {
 		// Give it to the callback.
-		return gs.opts.Callback(fp, d, err)
+		return gs.cfg.Callback(fp, d, err)
 	}
 
 	// The pattern matched only partially.
-	// Are we traversing symlinks? Is it a symlink?
-	if !gs.opts.TraverseSymlinks {
+	// Are we traversing symlinks?
+	if !gs.cfg.TraverseSymlinks {
+		// Nope - just keep walking.
 		return nil
 	}
 
-	// It's all symlink from this point.
+	// It's all symlink handling from this point.
 
 	fi, err := os.Lstat(fp)
 	if err != nil {
 		// Can't lstat, can't tell if link.
-		return gs.opts.Callback(fp, fs.FileInfoToDirEntry(fi), err)
+		return gs.cfg.Callback(fp, fs.FileInfoToDirEntry(fi), err)
 	}
 	if fi.Mode()&os.ModeSymlink != os.ModeSymlink {
 		// Not a symlink.
@@ -147,7 +148,7 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 	// fs.WalkDir doesn't walk symlinks unless it is the root path... in
 	// which case it does!
 	next := globState{
-		opts:   gs.opts,
+		cfg:    gs.cfg,
 		root:   fp,
 		states: states,
 	}

@@ -72,7 +72,7 @@ func TestTokeniser(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		got := tokenise(test.pattern)
+		got := tokenise(test.pattern, &parseConfig{})
 		if diff := cmp.Diff(got, test.want); diff != "" {
 			t.Errorf("tokenise(%q) diff (-got +want):\n%s", test.pattern, diff)
 		}

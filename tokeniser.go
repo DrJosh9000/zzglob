@@ -13,7 +13,7 @@ type token interface{ tokenTag() }
 
 type tokens []token
 
-func tokenise(p string) *tokens {
+func tokenise(p string, cfg *parseConfig) *tokens {
 	// Most tokens are single runes, so preallocate len(p).
 	tks := make(tokens, 0, len(p))
 
@@ -68,18 +68,45 @@ func tokenise(p string) *tokens {
 		switch c {
 		case '*': // previous char is not *
 			// It could be a * or **.
-			star = true
+			if cfg.allowStar {
+				star = true
+			} else {
+				tks = append(tks, literal('*'))
+			}
 
 		case '\\':
+			if !cfg.allowEscaping {
+				tks = append(tks, literal('\\'))
+				break
+			}
 			// Next char is escaped.
 			escape = true
 
 		case '[':
+			if !cfg.allowCharClass {
+				tks = append(tks, literal('['))
+				break
+			}
 			insideCC = true
 			fallthrough
 
-		case '?', ']', '{', '}', ',':
-			tks = append(tks, punctuation(c))
+		case '?':
+			if cfg.allowQuestion {
+				tks = append(tks, punctuation('?'))
+			} else {
+				tks = append(tks, literal('?'))
+			}
+
+		case ']':
+			// We only get here if insideCC is false...
+			tks = append(tks, literal(']'))
+
+		case '{', '}', ',':
+			if cfg.allowAlternation {
+				tks = append(tks, punctuation(c))
+			} else {
+				tks = append(tks, literal(c))
+			}
 
 		default:
 			// It's a literal.
