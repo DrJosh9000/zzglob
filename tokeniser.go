@@ -1,5 +1,7 @@
 package zzglob
 
+import "fmt"
+
 // Lexer tokens
 type (
 	literal     rune // not any of the below
@@ -9,7 +11,13 @@ type (
 func (literal) tokenTag()     {}
 func (punctuation) tokenTag() {}
 
-type token interface{ tokenTag() }
+func (l literal) String() string     { return fmt.Sprintf("literal(%q)", rune(l)) }
+func (p punctuation) String() string { return fmt.Sprintf("punctuation(%q)", rune(p)) }
+
+type token interface {
+	tokenTag()
+	String() string
+}
 
 type tokens []token
 
@@ -38,6 +46,10 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 		if insideCC {
 			switch c {
 			case '\\':
+				if !cfg.allowEscaping {
+					tks = append(tks, literal('\\'))
+					break
+				}
 				// Start of escape
 				escape = true
 
@@ -69,7 +81,11 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 		case '*': // previous char is not *
 			// It could be a * or **.
 			if cfg.allowStar {
-				star = true
+				if cfg.allowDoubleStar {
+					star = true
+				} else {
+					tks = append(tks, punctuation('*'))
+				}
 			} else {
 				tks = append(tks, literal('*'))
 			}
@@ -88,7 +104,7 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 				break
 			}
 			insideCC = true
-			fallthrough
+			tks = append(tks, punctuation('['))
 
 		case '?':
 			if cfg.allowQuestion {

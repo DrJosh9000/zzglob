@@ -6,6 +6,15 @@ import (
 	"io"
 )
 
+var defaultParseConfig = parseConfig{
+	allowEscaping:    true,
+	allowQuestion:    true,
+	allowStar:        true,
+	allowDoubleStar:  true,
+	allowAlternation: true,
+	allowCharClass:   true,
+}
+
 // Pattern is a glob pattern.
 type Pattern struct {
 	root    string
@@ -14,19 +23,13 @@ type Pattern struct {
 
 // Parse converts a pattern into a finite automaton.
 func Parse(pattern string, opts ...ParseOption) (*Pattern, error) {
-	cfg := &parseConfig{
-		allowQuestion:    true,
-		allowStar:        true,
-		allowDoubleStar:  true,
-		allowAlternation: true,
-		allowCharClass:   true,
-	}
+	cfg := defaultParseConfig
 	for _, o := range opts {
-		o(cfg)
+		o(&cfg)
 	}
 
 	// tokenise classifies each rune as literal or punctuation
-	tks := tokenise(pattern, cfg)
+	tks := tokenise(pattern, &cfg)
 
 	if allLiteral(*tks) {
 		return &Pattern{

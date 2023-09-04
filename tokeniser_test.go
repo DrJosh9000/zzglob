@@ -52,7 +52,7 @@ func TestTokeniser(t *testing.T) {
 			},
 		},
 		{
-			pattern: "{a,b,c}[d*\\]e]",
+			pattern: "{a,b,c}[d*\\]e]]",
 			want: &tokens{
 				punctuation('{'),
 				literal('a'),
@@ -67,12 +67,13 @@ func TestTokeniser(t *testing.T) {
 				literal(']'),
 				literal('e'),
 				punctuation(']'),
+				literal(']'),
 			},
 		},
 	}
 
 	for _, test := range tests {
-		got := tokenise(test.pattern, &parseConfig{})
+		got := tokenise(test.pattern, &defaultParseConfig)
 		if diff := cmp.Diff(got, test.want); diff != "" {
 			t.Errorf("tokenise(%q) diff (-got +want):\n%s", test.pattern, diff)
 		}
