@@ -189,8 +189,8 @@ func findRoot(tks *tokens) string {
 	return string(root[:lastSlash])
 }
 
-// reduce eliminates any edges with nil expression (that it can find using a
-// breadth-first search).
+// reduce tries to safely eliminate any edges with nil expression that it can
+// find.
 func reduce(initial *state) {
 	seen := make(map[*state]bool)
 	q := []*state{initial}
@@ -206,26 +206,24 @@ func reduce(initial *state) {
 		for i := range s.Out {
 			e := &s.Out[i]
 
-			if e.Expr == nil && e.State != nil {
-				// If e goes to a state that itself has outdegree 1, then
-				// replace both the expression and target of e with that edge.
-				if len(e.State.Out) == 1 {
+			// These optimisations only apply if the destination state is valid
+			// and has out-degree 1.
+			for {
+				// If e has nil expression, then replace both the expression and
+				// target of e with the next edge.
+				if e.State != nil && len(e.State.Out) == 1 && e.Expr == nil {
 					*e = e.State.Out[0]
-				} else {
-					// TODO: what if we have a long chain of nil expr?
-					// If we can jump to the next state immediately, and that state
-					// is terminal, then this state is also terminal.
-					if e.State.Terminal {
-						s.Terminal = true
-					}
+					continue
 				}
-			}
 
-			// If e goes to a state that itself has outdegree 1 and _that_ edge
-			// has nil expression, then replace the target state of e with
-			// the target of that subsequent edge. We can do this repeatedly.
-			for e.State != nil && len(e.State.Out) == 1 && e.State.Out[0].Expr == nil {
-				e.State = e.State.Out[0].State
+				// If the next edge has nil expression, then replace the target
+				// state of e with the target of that subsequent edge.
+				if e.State != nil && len(e.State.Out) == 1 && e.State.Out[0].Expr == nil {
+					e.State = e.State.Out[0].State
+					continue
+				}
+
+				break
 			}
 		}
 
@@ -322,14 +320,12 @@ func parseAlternation(tks *tokens, from *state) (end *state, err error) {
 		if err != nil {
 			return nil, err
 		}
-		from.Out = append(from.Out, edge{
-			Expr:  nil,
-			State: st,
-		})
+		// ed could be st, so add the out edge first
 		ed.Out = append(ed.Out, edge{
 			Expr:  nil,
 			State: end,
 		})
+		from.Out = append(from.Out, st.Out...)
 
 		switch done {
 		case punctuation(','):
