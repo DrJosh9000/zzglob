@@ -4,7 +4,6 @@ package zzglob
 import (
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path"
@@ -20,92 +19,63 @@ func (p *Pattern) Glob(f fs.WalkDirFunc, opts ...GlobOption) error {
 
 	gs := globState{
 		cfg: &globConfig{
-			TraverseSymlinks: true,
-			TraceLogs:        nil,
-			Callback:         f,
-			Filesystem:       os.DirFS(p.root),
+			traverseSymlinks: true,
+			traceLogger:      nil,
+			callback:         f,
+			filesystem:       nil,
 		},
 		root:   p.root,
 		states: singleton(p.initial),
 	}
-
 	for _, o := range opts {
 		o(gs.cfg)
 	}
 
+	// p.root always uses forward slashes. Translate (if needed)?
+	osRoot := p.root
+	if gs.cfg.translateSlashes {
+		osRoot = filepath.FromSlash(p.root)
+	}
+
 	// Filesystem override?
-	if gs.cfg.Filesystem == nil {
-		return errors.New("nil filesystem in options to Glob")
+	if gs.cfg.filesystem == nil {
+		// Wasn't overridden
+		if p.initial == nil {
+			// The fastest way to stat the file is... to stat the file.
+			fi, err := os.Stat(osRoot)
+			return f(osRoot, fs.FileInfoToDirEntry(fi), err)
+		}
+
+		gs.cfg.filesystem = os.DirFS(osRoot)
+
+	} else {
+		if p.initial == nil {
+			// Assume root sits at that path within the provided fs.FS.
+			fi, err := fs.Stat(gs.cfg.filesystem, p.root)
+			return f(osRoot, fs.FileInfoToDirEntry(fi), err)
+		}
+
+		subfs, err := fs.Sub(gs.cfg.filesystem, p.root)
+		if err != nil {
+			// That's unfortunate.
+			return fmt.Errorf("pattern root %q not valid within provided filesystem", p.root)
+		}
+		gs.cfg.filesystem = subfs
 	}
-	gs.fsys = gs.cfg.Filesystem
 
-	if gs.cfg.TranslateSlashes {
-		gs.root = filepath.ToSlash(p.root)
-	}
-
-	if p.initial == nil {
-		fi, err := fs.Stat(gs.fsys, p.root)
-		return f(p.root, fs.FileInfoToDirEntry(fi), err)
-	}
-
-	gs.logf("starting walk in fsys %v, root %q at . with %d states\n", gs.fsys, gs.root, len(gs.states))
-	return fs.WalkDir(gs.fsys, ".", gs.walkDirFunc)
-}
-
-// GlobOption functions optionally alter how Glob operates.
-type GlobOption = func(*globConfig)
-
-type globConfig struct {
-	TraverseSymlinks bool
-	TranslateSlashes bool
-	TraceLogs        io.Writer
-	Callback         fs.WalkDirFunc
-	Filesystem       fs.FS
-}
-
-// WithFilesystem allows overriding the default filesystem (os.DirFS(".")).
-func WithFilesystem(fs fs.FS) GlobOption {
-	return func(cfg *globConfig) {
-		cfg.Filesystem = fs
-	}
-}
-
-// WithTraceLogs logs debugging information for debugging Glob itself to the
-// provided writer. Disabled by default.
-func WithTraceLogs(out io.Writer) GlobOption {
-	return func(cfg *globConfig) {
-		cfg.TraceLogs = out
-	}
-}
-
-// TraverseSymlinks enables or disables the traversal of symlinks during
-// globbing. It is enabled by default.
-func TraverseSymlinks(traverse bool) GlobOption {
-	return func(cfg *globConfig) {
-		cfg.TraverseSymlinks = traverse
-	}
-}
-
-// TranslateSlashes enables or disables translating to and from fs.FS paths
-// (always with forward slashes, / ) using filepath.FromSlash. This applies to
-// both the matching pattern and filepaths passed to the callback, and is
-// typically required on Windows. Enabled by default.
-func TranslateSlashes(enable bool) GlobOption {
-	return func(cfg *globConfig) {
-		cfg.TranslateSlashes = enable
-	}
+	gs.logf("starting walk in fsys %v, root %q at . with %d states\n", gs.cfg.filesystem, gs.root, len(gs.states))
+	return fs.WalkDir(gs.cfg.filesystem, ".", gs.walkDirFunc)
 }
 
 type globState struct {
 	cfg    *globConfig
-	fsys   fs.FS
 	root   string
 	states map[*state]struct{}
 }
 
 func (gs *globState) logf(f string, v ...any) {
-	if gs.cfg.TraceLogs != nil {
-		fmt.Fprintf(gs.cfg.TraceLogs, f, v...)
+	if gs.cfg.traceLogger != nil {
+		fmt.Fprintf(gs.cfg.traceLogger, f, v...)
 	}
 }
 
@@ -157,15 +127,15 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 
 	if terminal || err != nil {
 		gs.logf("fully matched, or error! calling callback\n")
-		if gs.cfg.TranslateSlashes {
+		if gs.cfg.translateSlashes {
 			full = filepath.FromSlash(full)
 		}
-		return gs.cfg.Callback(full, d, err)
+		return gs.cfg.callback(full, d, err)
 	}
 
 	// The pattern matched only partially...
 	// Are we traversing symlinks?
-	if !gs.cfg.TraverseSymlinks {
+	if !gs.cfg.traverseSymlinks {
 		// Nope - just keep walking.
 		gs.logf("symlink traversal disabled; continuing walk\n")
 		return nil
@@ -178,7 +148,7 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 		return nil
 	}
 
-	subfs, err := fs.Sub(gs.fsys, fp)
+	subfs, err := fs.Sub(gs.cfg.filesystem, fp)
 	if err != nil {
 		gs.logf("error from fs.Sub(gs.fsys, %q): %v\n", fp, err)
 		return err
@@ -189,11 +159,10 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 	// which case it does!
 	next := globState{
 		cfg:    gs.cfg,
-		fsys:   subfs,
 		root:   full,
 		states: states,
 	}
 
-	gs.logf("starting symlink walk in fsys %v, root %q at . with %d states\n", next.fsys, next.root, len(gs.states))
-	return fs.WalkDir(next.fsys, ".", next.walkDirFunc)
+	gs.logf("starting symlink walk in fsys %v, root %q at . with %d states\n", subfs, next.root, len(gs.states))
+	return fs.WalkDir(subfs, ".", next.walkDirFunc)
 }
