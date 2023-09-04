@@ -44,7 +44,7 @@ func matchSegment(initial map[*state]struct{}, segment string) map[*state]struct
 			for _, e := range n.Out {
 				if e.Expr == nil {
 					// Nil expression means this edge should be followed
-					// right away.
+					// right away. Do this in a future iteration.
 					a[e.State] = struct{}{}
 					continue
 				}

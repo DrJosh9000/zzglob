@@ -203,30 +203,31 @@ func reduce(initial *state) {
 		}
 		seen[s] = true
 
-		var enew []edge
-		for _, e := range s.Out {
+		for i := range s.Out {
+			e := &s.Out[i]
+
+			if e.Expr == nil && e.State != nil {
+				// If e goes to a state that itself has outdegree 1, then
+				// replace both the expression and target of e with that edge.
+				if len(e.State.Out) == 1 {
+					*e = e.State.Out[0]
+				} else {
+					// TODO: what if we have a long chain of nil expr?
+					// If we can jump to the next state immediately, and that state
+					// is terminal, then this state is also terminal.
+					if e.State.Terminal {
+						s.Terminal = true
+					}
+				}
+			}
+
 			// If e goes to a state that itself has outdegree 1 and _that_ edge
 			// has nil expression, then replace the target state of e with
 			// the target of that subsequent edge. We can do this repeatedly.
 			for e.State != nil && len(e.State.Out) == 1 && e.State.Out[0].Expr == nil {
 				e.State = e.State.Out[0].State
 			}
-
-			// If e is an expressionless edge, use the next state's edges.
-			// (If we can jump to the next state immediately, then we can
-			// match its out edge immediately.)
-			if e.Expr == nil {
-				enew = append(enew, e.State.Out...)
-				// If we can jump to the next state immediately, and that state
-				// is terminal, then this state is also terminal.
-				if e.State.Terminal {
-					s.Terminal = true
-				}
-				continue
-			}
-			enew = append(enew, e)
 		}
-		s.Out = enew
 
 		for _, e := range s.Out {
 			if !seen[e.State] {
@@ -321,7 +322,10 @@ func parseAlternation(tks *tokens, from *state) (end *state, err error) {
 		if err != nil {
 			return nil, err
 		}
-		from.Out = append(from.Out, st.Out...)
+		from.Out = append(from.Out, edge{
+			Expr:  nil,
+			State: st,
+		})
 		ed.Out = append(ed.Out, edge{
 			Expr:  nil,
 			State: end,

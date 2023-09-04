@@ -46,6 +46,13 @@ func TestMatch(t *testing.T) {
 		{"{a,b**}", "ac", false},
 		{"{a,b**}", "bc", true},
 		{"{a,b**}", "bcc/cc", true},
+		{"{,a}{,a}{,a}{,a}{,a}b", "b", true},
+		{"{,a}{,a}{,a}{,a}{,a}b", "ab", true},
+		{"{,a}{,a}{,a}{,a}{,a}b", "aab", true},
+		{"{,a}{,a}{,a}{,a}{,a}b", "aaab", true},
+		{"{,a}{,a}{,a}{,a}{,a}b", "aaaab", true},
+		{"{,a}{,a}{,a}{,a}{,a}b", "aaaaab", true},
+		{"{,a}{,a}{,a}{,a}{,a}b", "aaaaaab", false},
 	}
 
 	for _, test := range tests {
