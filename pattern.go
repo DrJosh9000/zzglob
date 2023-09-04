@@ -202,7 +202,7 @@ func findRoot(tks *tokens) string {
 		root = append(root, rune(l))
 	}
 	if lastSlash < 0 {
-		// No slash, no root
+		// No slash, no root.
 		return ""
 	}
 	*tks = (*tks)[lastSlash:]
