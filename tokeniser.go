@@ -1,6 +1,9 @@
 package zzglob
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Lexer tokens
 type (
@@ -25,8 +28,14 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 	// Most tokens are single runes, so preallocate len(p).
 	tks := make(tokens, 0, len(p))
 
+	pathSep := '/'
+	escapeChar := '\\'
+	if cfg.swapSlashes {
+		pathSep, escapeChar = escapeChar, pathSep
+	}
+
 	// Tokenisation state.
-	escape := false   // the previous char was \
+	escape := false   // the previous char was escapeChar
 	star := false     // the previous char was *
 	insideCC := false // within a char class
 
@@ -34,7 +43,7 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 	for _, c := range p {
 		// Escaping something?
 		if escape {
-			// The \ escaped c - c is a literal.
+			// The escapeChar escaped c, so c is a literal.
 			escape = false
 			tks = append(tks, literal(c))
 			continue
@@ -45,9 +54,9 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 		// ], so escape is higher priority.
 		if insideCC {
 			switch c {
-			case '\\':
+			case escapeChar:
 				if !cfg.allowEscaping {
-					tks = append(tks, literal('\\'))
+					tks = append(tks, literal(escapeChar))
 					break
 				}
 				// Start of escape
@@ -90,13 +99,18 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 				tks = append(tks, literal('*'))
 			}
 
-		case '\\':
+		case escapeChar:
 			if !cfg.allowEscaping {
-				tks = append(tks, literal('\\'))
+				tks = append(tks, literal(escapeChar))
 				break
 			}
 			// Next char is escaped.
 			escape = true
+
+		case pathSep:
+			// Always represent the path separator with / for consistency
+			// with io/fs.
+			tks = append(tks, literal('/'))
 
 		case '[':
 			if !cfg.allowCharClass {
@@ -132,7 +146,7 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 
 	// Escape or * at end of string?
 	if escape {
-		tks = append(tks, literal('\\'))
+		tks = append(tks, literal(escapeChar))
 	}
 	if star {
 		tks = append(tks, punctuation('*'))
@@ -148,4 +162,19 @@ func (r *tokens) next() any {
 	}
 	defer func() { *r = (*r)[1:] }()
 	return (*r)[0]
+}
+
+// allLiteral returns a string consisting of all tokens runic equivalents.
+// r must consist solely of literals, otherwise it returns the empty string.
+func (r tokens) allLiteral() string {
+	b := strings.Builder{}
+	b.Grow(len(r))
+	for _, t := range r {
+		t, ok := t.(literal)
+		if !ok {
+			return ""
+		}
+		b.WriteRune(rune(t))
+	}
+	return b.String()
 }

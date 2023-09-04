@@ -8,8 +8,10 @@ import (
 )
 
 func TestParse(t *testing.T) {
+	// Because this tests the parsed output for a specific input:
+	// disable SwapSlashes in case this test is ever run on Windows
 	input := "x/y/z/*abc/{d,e}"
-	got, err := Parse(input)
+	got, err := Parse(input, WithSwapSlashes(false))
 	if err != nil {
 		t.Fatalf("Parse(%q) error = %v", input, err)
 	}
@@ -71,12 +73,26 @@ func TestWriteDotSmoke(t *testing.T) {
 		"a/b*c/d?e/{f,g}/[ij]/**/k",
 	}
 	for _, pattern := range tests {
-		p, err := Parse(pattern)
+		p, err := Parse(pattern, WithSwapSlashes(false))
 		if err != nil {
 			t.Fatalf("Parse(%q) error = %v", pattern, err)
 		}
 		if err := p.WriteDot(io.Discard, nil); err != nil {
 			t.Errorf("(%q).WriteDot(io.Discard) = %v", pattern, err)
 		}
+	}
+}
+
+func TestParse_SwapSlashes(t *testing.T) {
+	// Contains no operators - slash translation only
+	src := `C:\Windows\Media\Passport.mid`
+	got, err := Parse(src, WithSwapSlashes(true))
+	if err != nil {
+		t.Errorf("Parse(%q, WithSwapSlashes(true)) error = %v", src, err)
+	}
+
+	want := "C:/Windows/Media/Passport.mid"
+	if got.root != want {
+		t.Errorf("got.root = %q, want %q", got.root, want)
 	}
 }

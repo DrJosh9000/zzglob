@@ -6,15 +6,6 @@ import (
 	"io"
 )
 
-var defaultParseConfig = parseConfig{
-	allowEscaping:    true,
-	allowQuestion:    true,
-	allowStar:        true,
-	allowDoubleStar:  true,
-	allowAlternation: true,
-	allowCharClass:   true,
-}
-
 // Pattern is a glob pattern.
 type Pattern struct {
 	root    string
@@ -31,9 +22,9 @@ func Parse(pattern string, opts ...ParseOption) (*Pattern, error) {
 	// tokenise classifies each rune as literal or punctuation
 	tks := tokenise(pattern, &cfg)
 
-	if allLiteral(*tks) {
+	if root := tks.allLiteral(); root != "" {
 		return &Pattern{
-			root:    pattern,
+			root:    root,
 			initial: nil,
 		}, nil
 	}
@@ -175,17 +166,6 @@ func preprocess(in tokens) tokens {
 	return out
 }
 
-// allLiteral reports if the tokens are all literals.
-func allLiteral(in tokens) bool {
-	for _, t := range in {
-		_, ok := t.(literal)
-		if !ok {
-			return false
-		}
-	}
-	return true
-}
-
 // findRoot returns the longest prefix consisting of literals, up to (excluding)
 // the final path separator. tks is trimmed to be the remainder of the pattern.
 func findRoot(tks *tokens) string {
@@ -256,7 +236,7 @@ func reduce(initial *state) {
 	}
 }
 
-// parseSequence parses a sequence into a finite automaton.
+// parseSequence parses a sequence.
 func parseSequence(tkns *tokens, insideAlt bool) (start, end *state, endedWith token, err error) {
 	start = &state{}
 	end = start

@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -32,10 +33,15 @@ func (p *Pattern) Glob(f fs.WalkDirFunc, opts ...GlobOption) error {
 		o(gs.cfg)
 	}
 
+	// Filesystem override?
 	if gs.cfg.Filesystem == nil {
 		return errors.New("nil filesystem in options to Glob")
 	}
 	gs.fsys = gs.cfg.Filesystem
+
+	if gs.cfg.TranslateSlashes {
+		gs.root = filepath.ToSlash(p.root)
+	}
 
 	if p.initial == nil {
 		fi, err := fs.Stat(gs.fsys, p.root)
@@ -51,6 +57,7 @@ type GlobOption = func(*globConfig)
 
 type globConfig struct {
 	TraverseSymlinks bool
+	TranslateSlashes bool
 	TraceLogs        io.Writer
 	Callback         fs.WalkDirFunc
 	Filesystem       fs.FS
@@ -79,6 +86,16 @@ func TraverseSymlinks(traverse bool) GlobOption {
 	}
 }
 
+// TranslateSlashes enables or disables translating to and from fs.FS paths
+// (always with forward slashes, / ) using filepath.FromSlash. This applies to
+// both the matching pattern and filepaths passed to the callback, and is
+// typically required on Windows. Enabled by default.
+func TranslateSlashes(enable bool) GlobOption {
+	return func(cfg *globConfig) {
+		cfg.TranslateSlashes = enable
+	}
+}
+
 type globState struct {
 	cfg    *globConfig
 	fsys   fs.FS
@@ -102,11 +119,7 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 	// Directories have a trailing slash for matching.
 	// (Symlinks to other directories won't get a slash here.)
 
-	full := path.Join(gs.root, fp)
-
-	gs.logf("full = %q\n", full)
-
-	// Match p against the state machine.
+	// Rage (match /fp) against the (state) machine.
 	states := matchSegment(gs.states, "/"+fp)
 
 	// If it's a directory the pattern should match another /
@@ -139,24 +152,29 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 		return nil
 	}
 
-	if err != nil || terminal {
-		// Report the error to the callback.
+	full := path.Join(gs.root, fp)
+	gs.logf("full = %q\n", full)
+
+	if terminal || err != nil {
 		gs.logf("fully matched, or error! calling callback\n")
+		if gs.cfg.TranslateSlashes {
+			full = filepath.FromSlash(full)
+		}
 		return gs.cfg.Callback(full, d, err)
 	}
 
-	// The pattern matched only partially.
+	// The pattern matched only partially...
 	// Are we traversing symlinks?
 	if !gs.cfg.TraverseSymlinks {
 		// Nope - just keep walking.
-		gs.logf("symlink traversal disabled; skipping\n")
+		gs.logf("symlink traversal disabled; continuing walk\n")
 		return nil
 	}
 
 	// It's all symlink handling from this point.
 	if d == nil || d.Type()&fs.ModeSymlink == 0 {
 		// Not a symlink.
-		gs.logf("not a symlink; skipping\n")
+		gs.logf("not a symlink; continuing walk\n")
 		return nil
 	}
 
