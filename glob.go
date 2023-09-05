@@ -65,7 +65,7 @@ func (p *Pattern) Glob(f fs.WalkDirFunc, opts ...GlobOption) error {
 		subfs, err := fs.Sub(gs.cfg.filesystem, p.root)
 		if err != nil {
 			// That's unfortunate.
-			return fmt.Errorf("pattern root %q not valid within provided filesystem", p.root)
+			return fmt.Errorf("pattern root %q not valid within provided filesystem: %w", p.root, err)
 		}
 		gs.cfg.filesystem = subfs
 	}
@@ -78,7 +78,7 @@ type globState struct {
 	depth  int
 	cfg    *globConfig
 	root   string
-	states map[*state]struct{}
+	states stateSet
 }
 
 func (gs *globState) logf(f string, v ...any) {

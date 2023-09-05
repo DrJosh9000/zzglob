@@ -64,7 +64,7 @@ func MustParse(pattern string) *Pattern {
 
 // WriteDot writes a digraph representing the automaton to the writer
 // (in GraphViz syntax).
-func (p *Pattern) WriteDot(w io.Writer, hilite map[*state]struct{}) error {
+func (p *Pattern) WriteDot(w io.Writer, hilite stateSet) error {
 	if _, err := fmt.Fprintln(w, "digraph {\n\trankdir=LR;"); err != nil {
 		return err
 	}
@@ -281,7 +281,8 @@ func parseAlternation(tks *tokens, from *state) (end *state, err error) {
 	}
 }
 
-// parseCharClass is like parseAlternation.
+// parseCharClass is like parseAlternation, except each branch only matches
+// exactly one character.
 func parseCharClass(tks *tokens, from *state) (end *state, err error) {
 	end = &state{}
 	for {
@@ -306,19 +307,4 @@ func parseCharClass(tks *tokens, from *state) (end *state, err error) {
 			}
 		}
 	}
-}
-
-type state struct {
-	Out      []edge
-	Terminal bool
-}
-
-type edge struct {
-	Expr  expression
-	State *state
-}
-
-// singleton wraps a single value into a map used as a set.
-func singleton[K comparable](k K) map[K]struct{} {
-	return map[K]struct{}{k: {}}
 }
