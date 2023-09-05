@@ -35,9 +35,10 @@ func (p *Pattern) Glob(f fs.WalkDirFunc, opts ...GlobOption) error {
 	}
 
 	// p.root always uses forward slashes. Translate (if needed)?
-	osRoot := path.Clean(p.root)
+	cleanRoot := path.Clean(p.root)
+	osRoot := cleanRoot
 	if gs.cfg.translateSlashes {
-		osRoot = filepath.FromSlash(p.root)
+		osRoot = filepath.FromSlash(cleanRoot)
 	}
 
 	// Filesystem override?
@@ -49,23 +50,19 @@ func (p *Pattern) Glob(f fs.WalkDirFunc, opts ...GlobOption) error {
 			return f(osRoot, fs.FileInfoToDirEntry(fi), err)
 		}
 
-		if osRoot == "" {
-			osRoot = "."
-		}
-
 		gs.cfg.filesystem = os.DirFS(osRoot)
 
 	} else {
 		if p.initial == nil {
 			// Assume root sits at that path within the provided fs.FS.
-			fi, err := fs.Stat(gs.cfg.filesystem, p.root)
+			fi, err := fs.Stat(gs.cfg.filesystem, cleanRoot)
 			return f(osRoot, fs.FileInfoToDirEntry(fi), err)
 		}
 
-		subfs, err := fs.Sub(gs.cfg.filesystem, p.root)
+		subfs, err := fs.Sub(gs.cfg.filesystem, cleanRoot)
 		if err != nil {
 			// That's unfortunate.
-			return fmt.Errorf("pattern root %q not valid within provided filesystem: %w", p.root, err)
+			return fmt.Errorf("pattern root %q not valid within provided filesystem: %w", cleanRoot, err)
 		}
 		gs.cfg.filesystem = subfs
 	}
