@@ -6,13 +6,13 @@ import (
 	"io"
 )
 
-// Pattern is a glob pattern.
+// Pattern is a parsed glob pattern.
 type Pattern struct {
 	root    string
 	initial *state
 }
 
-// Parse converts a pattern into a finite automaton.
+// Parse parses a pattern.
 func Parse(pattern string, opts ...ParseOption) (*Pattern, error) {
 	cfg := defaultParseConfig
 	for _, o := range opts {
@@ -37,16 +37,20 @@ func Parse(pattern string, opts ...ParseOption) (*Pattern, error) {
 	// Find the root of the path. This is where directory walking starts.
 	root := findRoot(tks)
 
-	// Convert the rest of the sequence into a DFA.
+	// Convert the rest of the sequence into a state machine.
 	initial, terminal, _, err := parseSequence(tks, false)
 	if err != nil {
 		return nil, err
 	}
 
+	// The terminal state is terminal.
 	terminal.Terminal = true
 
+	// Remove redundant nil edges, where possible. This should only ever remove
+	// edges and possibly redundant intermediate states.
 	reduce(initial)
 
+	// Done! Here's the machine.
 	return &Pattern{
 		root:    root,
 		initial: initial,
@@ -62,7 +66,7 @@ func MustParse(pattern string) *Pattern {
 	return p
 }
 
-// WriteDot writes a digraph representing the automaton to the writer
+// WriteDot writes a digraph representing the state machine to the writer
 // (in GraphViz syntax).
 func (p *Pattern) WriteDot(w io.Writer, hilite stateSet) error {
 	if _, err := fmt.Fprintln(w, "digraph {\n\trankdir=LR;"); err != nil {
@@ -129,7 +133,9 @@ func (p *Pattern) WriteDot(w io.Writer, hilite stateSet) error {
 }
 
 // reduce tries to safely eliminate any edges with nil expression that it can
-// find.
+// find. "Safely" means both correctness (not changing which inputs the
+// machine accepts or rejects) and complexity (e.g. not adding O(n^2) edges to
+// replace the nil edges it eliminates).
 func reduce(initial *state) {
 	seen := make(map[*state]bool)
 	q := []*state{initial}
@@ -151,9 +157,9 @@ func reduce(initial *state) {
 				// If e has nil Expr, then replace both the expression and
 				// target of e with the next edge:
 				//
-				// s --e(<nil>)--> e.State --e.State.Out[0]--> e.State.Out[0].State
+				// s --e(<nil>)--> s' --e'--> s''
 				//   becomes
-				// s --next--> e.State.Out[0].State
+				// s --e'--> s''
 				if e.State != nil && len(e.State.Out) == 1 && e.Expr == nil {
 					*e = e.State.Out[0]
 					continue
@@ -162,9 +168,9 @@ func reduce(initial *state) {
 				// If the next edge has nil expression, then replace the target
 				// state of e with the target of that subsequent edge.
 				//
-				// s --e--> e.State --e.State.Out[0](<nil>)--> e.State.Out[0].State
+				// s --e--> s' --e'(<nil>)--> s''
 				//   becomes
-				// s --e--> e.State.Out[0].State
+				// s --e--> s''
 				if e.State != nil && len(e.State.Out) == 1 && e.State.Out[0].Expr == nil {
 					e.State = e.State.Out[0].State
 					continue
