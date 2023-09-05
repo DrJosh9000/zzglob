@@ -9,6 +9,7 @@ A better glob for Go?
 * <abbr title="Done">✅</abbr> Glob in a deterministic order, like `fs.WalkDir`.
 * <abbr title="Done">✅</abbr> Support the classics like `?` and `*`, and also
   modern conveniences like `**`, `{x,y,z}`, and `[abc]`.
+* <abbr title="Done">✅</abbr> Expand `~` to the current user's homedir.
 * <abbr title="Done">✅</abbr> Optionally traverse directory symlinks.
 * <abbr title="Done">✅</abbr> Avoid walking directories unnecessarily -
   globbing `foo*/bar` should only walk inside directories starting with `foo`,
@@ -17,6 +18,8 @@ A better glob for Go?
   callback.
 * <abbr title="Done">✅</abbr> Supports globbing over any `io.FS`, not just the
   host filesystem.
+* <abbr title="Done">✅</abbr> Supports globbing on Windows with Windows-style
+  paths, by default.
 
 Also the implementation shouldn't be totally inscruitable. It is based on a
 state machine, and I have attempted to cleanly separate each parsing phase.
@@ -52,3 +55,27 @@ go run cmd/zzdot/zzdot.go '[abcd]{*g,h*,i/j}/**/k' | dot -Tsvg > example.svg
   escape it (`\,`).
 * `[abc]` - matches a single character (`a` or `b` or `c`). `[]` is a shorter
   way to write a match for a single character than `{}`.
+* `~` - is expanded to be current user's home directory.
+
+Each syntax element can be enabled or disabled individually when calling
+`Parse`, and the meaning of forward slash and backslash can be swapped
+(enabled by default on Windows):
+
+```go
+pattern, err := zzglob.Parse(`C:\Windows\Media\*.mid`,
+    zzglob.ExpandTilde(false),
+    zzglob.SwapSlashes(true),
+    zzglob.AllowEscaping(false),
+)
+```
+
+Similarly, symlink traversal, slash conversion, and custom `fs.FS` can be 
+supplied to `Glob`:
+
+```go
+err := pattern.Glob(myWalkDirFunc, 
+    zzglob.TraverseSymlinks(false),
+    zzglob.TranslateSlashes(true),
+    zzglob.WithFilesystem(os.DirFS("/secrets/")),
+)
+```

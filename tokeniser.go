@@ -8,7 +8,7 @@ import (
 // Lexer tokens
 type (
 	literal     rune // not any of the below
-	punctuation rune // *, ** (as ⁑), ?, {, }, [, ], or comma
+	punctuation rune // *, ** (as ⁑), ?, {, }, [, ], ~, or comma
 )
 
 func (literal) tokenTag()     {}
@@ -55,12 +55,11 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 		if insideCC {
 			switch c {
 			case escapeChar:
-				if !cfg.allowEscaping {
+				if cfg.allowEscaping { // Start of escape
+					escape = true
+				} else {
 					tks = append(tks, literal(escapeChar))
-					break
 				}
-				// Start of escape
-				escape = true
 
 			case ']':
 				// End of cc
@@ -112,13 +111,20 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 			// with io/fs.
 			tks = append(tks, literal('/'))
 
-		case '[':
-			if !cfg.allowCharClass {
-				tks = append(tks, literal('['))
-				break
+		case '~':
+			if cfg.expandTilde {
+				tks = append(tks, punctuation('~'))
+			} else {
+				tks = append(tks, literal('~'))
 			}
-			insideCC = true
-			tks = append(tks, punctuation('['))
+
+		case '[':
+			if cfg.allowCharClass {
+				insideCC = true
+				tks = append(tks, punctuation('['))
+			} else {
+				tks = append(tks, literal('['))
+			}
 
 		case '?':
 			if cfg.allowQuestion {

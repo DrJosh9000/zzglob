@@ -12,11 +12,13 @@ type globConfig struct {
 	traverseSymlinks bool
 	translateSlashes bool
 	traceLogger      io.Writer
-	callback         fs.WalkDirFunc
 	filesystem       fs.FS
+
+	callback fs.WalkDirFunc // the required arg to Glob
 }
 
-// WithFilesystem allows overriding the default filesystem (os.DirFS(".")).
+// WithFilesystem allows overriding the default filesystem. By default os.DirFS
+// is used to wrap file/directory access in an `fs.FS`.
 func WithFilesystem(fs fs.FS) GlobOption {
 	return func(cfg *globConfig) {
 		cfg.filesystem = fs

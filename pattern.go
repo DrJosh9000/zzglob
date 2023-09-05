@@ -19,17 +19,20 @@ func Parse(pattern string, opts ...ParseOption) (*Pattern, error) {
 		o(&cfg)
 	}
 
-	// tokenise classifies each rune as literal or punctuation
+	// tokenise classifies each rune as literal or punctuation, interprets
+	// escape chars, etc.
 	tks := tokenise(pattern, &cfg)
 
+	// Preprocessing, for example replace ~/ with homedir.
+	*tks = preprocess(*tks)
+
+	// If the pattern is all literals, then it's a specific path.
 	if root := tks.allLiteral(); root != "" {
 		return &Pattern{
 			root:    root,
 			initial: nil,
 		}, nil
 	}
-
-	*tks = preprocess(*tks)
 
 	// Find the root of the path. This is where directory walking starts.
 	root := findRoot(tks)
@@ -123,74 +126,6 @@ func (p *Pattern) WriteDot(w io.Writer, hilite map[*state]struct{}) error {
 		return err
 	}
 	return nil
-}
-
-// preprocess preprocesses the token sequence in the following ways.
-// Because ** should match zero path segments:
-// - prefix ⁑/ becomes {,⁑/}
-// - /⁑/ becomes /{,⁑/}
-func preprocess(in tokens) tokens {
-	if len(in) >= 2 && in[0] == punctuation('⁑') && in[1] == literal('/') {
-		in = append(tokens{
-			punctuation('{'), punctuation(','), punctuation('⁑'),
-			literal('/'), punctuation('}'),
-		}, in[2:]...)
-	}
-
-	in = replace(in, tokens{
-		literal('/'), punctuation('⁑'), literal('/'),
-	}, tokens{
-		literal('/'), punctuation('{'), punctuation(','),
-		punctuation('⁑'), literal('/'), punctuation('}'),
-	})
-	return in
-}
-
-func replace(in, toFind, sub tokens) tokens {
-	out := make([]token, 0, len(in))
-	next := 0
-	for _, t := range in {
-		if t == toFind[next] {
-			next++
-			if next == len(toFind) {
-				out = append(out, sub...)
-				next = 0
-			}
-		} else {
-			if next != 0 {
-				out = append(out, toFind[:next]...)
-				next = 0
-			}
-			out = append(out, t)
-		}
-	}
-	if next != 0 {
-		out = append(out, toFind[:next]...)
-	}
-	return out
-}
-
-// findRoot returns the longest prefix consisting of literals, up to (including)
-// the final path separator. tks is trimmed to be the remainder of the pattern.
-func findRoot(tks *tokens) string {
-	var root []rune
-	lastSlash := -1
-	for i, t := range *tks {
-		l, ok := t.(literal)
-		if !ok {
-			break
-		}
-		if l == '/' {
-			lastSlash = i
-		}
-		root = append(root, rune(l))
-	}
-	if lastSlash < 0 {
-		// No slash, no root.
-		return ""
-	}
-	*tks = (*tks)[lastSlash+1:]
-	return string(root[:lastSlash+1])
 }
 
 // reduce tries to safely eliminate any edges with nil expression that it can
@@ -324,12 +259,14 @@ func parseAlternation(tks *tokens, from *state) (end *state, err error) {
 		if err != nil {
 			return nil, err
 		}
-		// ed could be st, so add the out edge first
+		from.Out = append(from.Out, edge{
+			Expr:  nil,
+			State: st,
+		})
 		ed.Out = append(ed.Out, edge{
 			Expr:  nil,
 			State: end,
 		})
-		from.Out = append(from.Out, st.Out...)
 
 		switch done {
 		case punctuation(','):

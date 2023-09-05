@@ -12,6 +12,7 @@ var defaultParseConfig = parseConfig{
 	allowAlternation: true,
 	allowCharClass:   true,
 	swapSlashes:      filepath.Separator != '/',
+	expandTilde:      true,
 }
 
 type parseConfig struct {
@@ -22,6 +23,7 @@ type parseConfig struct {
 	allowAlternation bool
 	allowCharClass   bool
 	swapSlashes      bool
+	expandTilde      bool
 }
 
 // ParseOption functions optionally alter how patterns are parsed.
@@ -63,19 +65,30 @@ func AllowDoubleStar(enable bool) ParseOption {
 	}
 }
 
-// AllowAlternation changes how { } are parsed. If disabled, { and } are treated
-// as literals. Enabled by default.
+// AllowAlternation changes how { } are parsed. If enabled, { and } delimit
+// alternations. If disabled, { and } are treated as literals.
+// Enabled by default.
 func AllowAlternation(enable bool) ParseOption {
 	return func(o *parseConfig) {
 		o.allowAlternation = enable
 	}
 }
 
-// AllowCharClass changes how [ ] are parsed. If disabled, [ and ] are treated
-// as literals. Enabled by default.
+// AllowCharClass changes how [ ] are parsed. If enabled, [ and ] denote
+// character classes. If disabled, [ and ] are treated as literals.
+// Enabled by default.
 func AllowCharClass(enable bool) ParseOption {
 	return func(o *parseConfig) {
 		o.allowCharClass = enable
+	}
+}
+
+// ExpandTilde changes how ~ is parsed. If enabled, ~ is expanded to the current
+// user's home directory. If disabled, ~ is treated as a literal.
+// Enabled by default.
+func ExpandTilde(enable bool) ParseOption {
+	return func(o *parseConfig) {
+		o.expandTilde = enable
 	}
 }
 
