@@ -125,25 +125,29 @@ func (p *Pattern) WriteDot(w io.Writer, hilite map[*state]struct{}) error {
 	return nil
 }
 
-// preprocess preprocesses the token sequence in the following ways:
-// - /⁑/ becomes {/,/⁑/}
+// preprocess preprocesses the token sequence in the following ways.
+// Because ** should match zero path segments:
+// - prefix ⁑/ becomes {,⁑/}
+// - /⁑/ becomes /{,⁑/}
 func preprocess(in tokens) tokens {
+	if len(in) >= 2 && in[0] == punctuation('⁑') && in[1] == literal('/') {
+		in = append(tokens{
+			punctuation('{'), punctuation(','), punctuation('⁑'),
+			literal('/'), punctuation('}'),
+		}, in[2:]...)
+	}
+
+	in = replace(in, tokens{
+		literal('/'), punctuation('⁑'), literal('/'),
+	}, tokens{
+		literal('/'), punctuation('{'), punctuation(','),
+		punctuation('⁑'), literal('/'), punctuation('}'),
+	})
+	return in
+}
+
+func replace(in, toFind, sub tokens) tokens {
 	out := make([]token, 0, len(in))
-	// It's one subsequence find'n'replace, how hard can it be?
-	toFind := []token{
-		literal('/'),
-		punctuation('⁑'),
-		literal('/'),
-	}
-	sub := []token{
-		punctuation('{'),
-		literal('/'),
-		punctuation(','),
-		literal('/'),
-		punctuation('⁑'),
-		literal('/'),
-		punctuation('}'),
-	}
 	next := 0
 	for _, t := range in {
 		if t == toFind[next] {
@@ -166,7 +170,7 @@ func preprocess(in tokens) tokens {
 	return out
 }
 
-// findRoot returns the longest prefix consisting of literals, up to (excluding)
+// findRoot returns the longest prefix consisting of literals, up to (including)
 // the final path separator. tks is trimmed to be the remainder of the pattern.
 func findRoot(tks *tokens) string {
 	var root []rune
@@ -185,8 +189,8 @@ func findRoot(tks *tokens) string {
 		// No slash, no root.
 		return ""
 	}
-	*tks = (*tks)[lastSlash:]
-	return string(root[:lastSlash])
+	*tks = (*tks)[lastSlash+1:]
+	return string(root[:lastSlash+1])
 }
 
 // reduce tries to safely eliminate any edges with nil expression that it can

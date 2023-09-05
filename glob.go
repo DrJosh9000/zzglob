@@ -21,6 +21,7 @@ func (p *Pattern) Glob(f fs.WalkDirFunc, opts ...GlobOption) error {
 
 	gs := globState{
 		cfg: &globConfig{
+			translateSlashes: true,
 			traverseSymlinks: true,
 			traceLogger:      nil,
 			callback:         f,
@@ -34,7 +35,7 @@ func (p *Pattern) Glob(f fs.WalkDirFunc, opts ...GlobOption) error {
 	}
 
 	// p.root always uses forward slashes. Translate (if needed)?
-	osRoot := p.root
+	osRoot := path.Clean(p.root)
 	if gs.cfg.translateSlashes {
 		osRoot = filepath.FromSlash(p.root)
 	}
@@ -102,7 +103,7 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 	// (Symlinks to other directories won't get a slash here.)
 
 	// Rage (match /fp) against the (state) machine.
-	states := matchSegment(gs.states, "/"+fp)
+	states := matchSegment(gs.states, fp)
 
 	// If it's a directory the pattern should match another /
 	if d != nil && d.IsDir() && !strings.HasSuffix(fp, "/") {
@@ -157,6 +158,14 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 	if d == nil || d.Type()&fs.ModeSymlink == 0 {
 		// Not a symlink.
 		gs.logf("not a symlink; continuing walk\n")
+		return nil
+	}
+
+	// Because we only traverse symlinks to directories, the pattern must match
+	// another /.
+	states = matchSegment(states, "/")
+	if len(states) == 0 {
+		gs.logf("pattern did not match additional /; continuing walk\n")
 		return nil
 	}
 

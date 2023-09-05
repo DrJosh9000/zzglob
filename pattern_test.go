@@ -19,13 +19,8 @@ func TestParse(t *testing.T) {
 	loop := &state{}
 
 	want := &Pattern{
-		root: "x/y/z",
-		initial: &state{
-			Out: []edge{{
-				Expr:  literalExp('/'),
-				State: loop,
-			}},
-		},
+		root:    "x/y/z/",
+		initial: loop,
 	}
 
 	// stars form loops

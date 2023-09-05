@@ -151,6 +151,7 @@ func TestGlob_EmptyRoot(t *testing.T) {
 		{Path: "a/b/cod/erf/h/k/n/m"},
 		{Path: "a/b/cod/erf/i/m"},
 		{Path: "a/b/cod/erf/i/n/m"},
+		{Path: "m"},
 	}
 
 	if diff := cmp.Diff(got, want); diff != "" {
