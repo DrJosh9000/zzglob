@@ -99,7 +99,7 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 	// Directories have a trailing slash for matching.
 	// (Symlinks to other directories won't get a slash here.)
 
-	// Rage (match /fp) against the (state) machine.
+	// Rage (match fp) against the (state) machine.
 	states := matchSegment(gs.states, fp)
 
 	// If it's a directory the pattern should match another /
@@ -168,8 +168,8 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 
 	subfs, err := fs.Sub(gs.cfg.filesystem, fp)
 	if err != nil {
-		gs.logf("error from fs.Sub(gs.fsys, %q): %v\n", fp, err)
-		return err
+		gs.logf("error from fs.Sub(gs.fsys, %q): %v - passing to callback\n", fp, err)
+		return gs.cfg.callback(fp, d, err)
 	}
 
 	// Walk the symlink by... recursion.
