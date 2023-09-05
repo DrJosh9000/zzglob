@@ -52,7 +52,7 @@ func matchSegment(initial stateSet, segment string) stateSet {
 			for _, e := range n.Out {
 				if e.Expr == nil {
 					// The queue should already contain e.State because of
-					// transitive.
+					// transitiveClosure.
 					continue
 				}
 				matched := e.Expr.match(r)

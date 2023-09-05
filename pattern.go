@@ -148,8 +148,12 @@ func reduce(initial *state) {
 			// These optimisations only apply if the destination state is valid
 			// and has out-degree 1.
 			for {
-				// If e has nil expression, then replace both the expression and
-				// target of e with the next edge.
+				// If e has nil Expr, then replace both the expression and
+				// target of e with the next edge:
+				//
+				// s --e(<nil>)--> e.State --e.State.Out[0]--> e.State.Out[0].State
+				//   becomes
+				// s --next--> e.State.Out[0].State
 				if e.State != nil && len(e.State.Out) == 1 && e.Expr == nil {
 					*e = e.State.Out[0]
 					continue
@@ -157,6 +161,10 @@ func reduce(initial *state) {
 
 				// If the next edge has nil expression, then replace the target
 				// state of e with the target of that subsequent edge.
+				//
+				// s --e--> e.State --e.State.Out[0](<nil>)--> e.State.Out[0].State
+				//   becomes
+				// s --e--> e.State.Out[0].State
 				if e.State != nil && len(e.State.Out) == 1 && e.State.Out[0].Expr == nil {
 					e.State = e.State.Out[0].State
 					continue
