@@ -1,0 +1,11 @@
+go test fuzz v1
+string("\U0009191f\U0009e58e")
+string("")
+bool(false)
+bool(false)
+bool(false)
+bool(false)
+bool(false)
+bool(false)
+bool(false)
+bool(false)

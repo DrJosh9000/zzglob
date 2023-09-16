@@ -1,0 +1,11 @@
+go test fuzz v1
+string("~~~~~~~~~~~~~~~~")
+string("0\xff\xf1t\xe5\x17h\xe9/")
+bool(false)
+bool(false)
+bool(false)
+bool(true)
+bool(false)
+bool(true)
+bool(false)
+bool(true)

@@ -1,0 +1,11 @@
+go test fuzz v1
+string("Ǘ00\xe5\xff0\xaf\xd7\xc20\xc10\x85\xe7000")
+string("")
+bool(false)
+bool(false)
+bool(false)
+bool(false)
+bool(false)
+bool(false)
+bool(false)
+bool(true)
