@@ -1,0 +1,11 @@
+go test fuzz v1
+string("*??A0")
+string("00A")
+bool(false)
+bool(true)
+bool(true)
+bool(false)
+bool(false)
+bool(true)
+bool(false)
+bool(true)

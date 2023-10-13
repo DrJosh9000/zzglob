@@ -91,3 +91,25 @@ func TestParse_SwapSlashes(t *testing.T) {
 		t.Errorf("got.root = %q, want %q", got.root, want)
 	}
 }
+
+func FuzzParseMatch(f *testing.F) {
+	f.Fuzz(func(t *testing.T, pattern, path string,
+		allowEscaping, allowQuestion, allowStar, allowDoubleStar, allowAlternation, allowCharClass, swapSlashes, expandTilde bool) {
+		p, err := Parse(
+			pattern,
+			AllowEscaping(allowEscaping),
+			AllowQuestion(allowQuestion),
+			AllowStar(allowStar),
+			AllowDoubleStar(allowDoubleStar),
+			AllowAlternation(allowAlternation),
+			AllowCharClass(allowCharClass),
+			WithSwapSlashes(swapSlashes),
+			ExpandTilde(expandTilde),
+		)
+
+		if err != nil {
+			return
+		}
+		_ = p.Match(path)
+	})
+}

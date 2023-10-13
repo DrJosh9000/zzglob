@@ -1,0 +1,11 @@
+go test fuzz v1
+string("*0")
+string("1111111111111111")
+bool(false)
+bool(false)
+bool(true)
+bool(true)
+bool(false)
+bool(false)
+bool(true)
+bool(false)
