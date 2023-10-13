@@ -1,8 +1,9 @@
 # zzglob
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/DrJosh9000/zzglob.svg)](https://pkg.go.dev/github.com/DrJosh9000/zzglob)
+[![Build status](https://badge.buildkite.com/a5a3787ea61600acc07ae0baa09bd444b4399c72c6115cdc24.svg)](https://buildkite.com/drjosh9000/zzglob)
 
-A better glob for Go?
+A better glob library for Go
 
 ## Goals
 
