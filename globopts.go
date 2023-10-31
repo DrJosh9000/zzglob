@@ -13,6 +13,7 @@ type globConfig struct {
 	translateSlashes bool
 	traceLogger      io.Writer
 	filesystem       fs.FS
+	goroutines       int // only used by MultiGlob
 
 	callback fs.WalkDirFunc // the required arg to Glob
 }
@@ -49,5 +50,13 @@ func TraverseSymlinks(traverse bool) GlobOption {
 func TranslateSlashes(enable bool) GlobOption {
 	return func(cfg *globConfig) {
 		cfg.translateSlashes = enable
+	}
+}
+
+// GoroutineLimit sets a concurrency limit for MultiGlob. By default there is no
+// limit. MultiGlob will create at most n worker goroutines unless n <= 0.
+func GoroutineLimit(n int) GlobOption {
+	return func(cfg *globConfig) {
+		cfg.goroutines = n
 	}
 }
