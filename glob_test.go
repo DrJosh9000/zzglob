@@ -4,22 +4,40 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 )
+
+var traceLogOpt GlobOption = nil // WithTraceLogs(os.Stderr)
 
 type walkFuncArgs struct {
 	Path string
 	Err  error
 }
 
-type walkFuncCalls []walkFuncArgs
+type walkFuncCalls struct {
+	mu    sync.Mutex
+	calls []walkFuncArgs
+}
 
 func (c *walkFuncCalls) walkFunc(path string, d fs.DirEntry, err error) error {
-	*c = append(*c, walkFuncArgs{path, err})
+	c.mu.Lock()
+	c.calls = append(c.calls, walkFuncArgs{path, err})
+	c.mu.Unlock()
 	return nil
+}
+
+func (c *walkFuncCalls) sortCalls() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	sort.Slice(c.calls, func(i, j int) bool {
+		// Only sort path for now
+		return c.calls[i].Path < c.calls[j].Path
+	})
 }
 
 func TestGlob(t *testing.T) {
@@ -30,19 +48,51 @@ func TestGlob(t *testing.T) {
 	}
 
 	var got walkFuncCalls
-	if err := p.Glob(got.walkFunc, WithTraceLogs(os.Stderr)); err != nil {
+	if err := p.Glob(got.walkFunc, traceLogOpt); err != nil {
 		t.Fatalf("Glob(...) = %v", err)
 	}
 
 	want := walkFuncCalls{
-		{Path: "fixtures/a/b/cd/elf/g/j/absurdity/m"},
-		{Path: "fixtures/a/b/cid/erf/h/k/m"},
-		{Path: "fixtures/a/b/cid/erf/h/k/n/m"},
-		{Path: "fixtures/a/b/cod/erf/h/k/m"},
-		{Path: "fixtures/a/b/cod/erf/h/k/n/m"},
+		calls: []walkFuncArgs{
+			{Path: "fixtures/a/b/cd/elf/g/j/absurdity/m"},
+			{Path: "fixtures/a/b/cid/erf/h/k/m"},
+			{Path: "fixtures/a/b/cid/erf/h/k/n/m"},
+			{Path: "fixtures/a/b/cod/erf/h/k/m"},
+			{Path: "fixtures/a/b/cod/erf/h/k/n/m"},
+		},
 	}
 
-	if diff := cmp.Diff(got, want); diff != "" {
+	if diff := cmp.Diff(got.calls, want.calls); diff != "" {
+		t.Errorf("walked paths diff (-got +want):\n%s", diff)
+	}
+}
+
+func TestGlob_SymlinkInSymlink(t *testing.T) {
+	// cid       -> symlink to cod
+	// cod/erf/i -> symlink to cod/erf/h/k
+	// So
+	// ci/erf/i -> cod/erf/h/k ... right?
+	pattern := "fixtures/a/b/c{i}d/**/m"
+	p, err := Parse(pattern)
+	if err != nil {
+		t.Fatalf("Parse(%q) = %v", pattern, err)
+	}
+
+	var got walkFuncCalls
+	if err := p.Glob(got.walkFunc, traceLogOpt); err != nil {
+		t.Fatalf("Glob(...) = %v", err)
+	}
+
+	want := walkFuncCalls{
+		calls: []walkFuncArgs{
+			{Path: "fixtures/a/b/cid/erf/h/k/m"},
+			{Path: "fixtures/a/b/cid/erf/h/k/n/m"},
+			{Path: "fixtures/a/b/cid/erf/i/m"},
+			{Path: "fixtures/a/b/cid/erf/i/n/m"},
+		},
+	}
+
+	if diff := cmp.Diff(got.calls, want.calls); diff != "" {
 		t.Errorf("walked paths diff (-got +want):\n%s", diff)
 	}
 }
@@ -55,17 +105,19 @@ func TestGlob_TraverseSymlinksDisabled(t *testing.T) {
 	}
 
 	var got walkFuncCalls
-	if err := p.Glob(got.walkFunc, TraverseSymlinks(false), WithTraceLogs(os.Stderr)); err != nil {
+	if err := p.Glob(got.walkFunc, TraverseSymlinks(false), traceLogOpt); err != nil {
 		t.Fatalf("Glob(...) = %v", err)
 	}
 
 	want := walkFuncCalls{
-		{Path: "fixtures/a/b/cd/elf/g/j/absurdity/m"},
-		{Path: "fixtures/a/b/cod/erf/h/k/m"},
-		{Path: "fixtures/a/b/cod/erf/h/k/n/m"},
+		calls: []walkFuncArgs{
+			{Path: "fixtures/a/b/cd/elf/g/j/absurdity/m"},
+			{Path: "fixtures/a/b/cod/erf/h/k/m"},
+			{Path: "fixtures/a/b/cod/erf/h/k/n/m"},
+		},
 	}
 
-	if diff := cmp.Diff(got, want); diff != "" {
+	if diff := cmp.Diff(got.calls, want.calls); diff != "" {
 		t.Errorf("walked paths diff (-got +want):\n%s", diff)
 	}
 }
@@ -85,19 +137,21 @@ func TestGlob_Absolute(t *testing.T) {
 	}
 
 	var got walkFuncCalls
-	if err := p.Glob(got.walkFunc, WithTraceLogs(os.Stderr)); err != nil {
+	if err := p.Glob(got.walkFunc, traceLogOpt); err != nil {
 		t.Fatalf("Glob(...) = %v", err)
 	}
 
 	want := walkFuncCalls{
-		{Path: base + "fixtures/a/b/cd/elf/g/j/absurdity/m"},
-		{Path: base + "fixtures/a/b/cid/erf/h/k/m"},
-		{Path: base + "fixtures/a/b/cid/erf/h/k/n/m"},
-		{Path: base + "fixtures/a/b/cod/erf/h/k/m"},
-		{Path: base + "fixtures/a/b/cod/erf/h/k/n/m"},
+		calls: []walkFuncArgs{
+			{Path: base + "fixtures/a/b/cd/elf/g/j/absurdity/m"},
+			{Path: base + "fixtures/a/b/cid/erf/h/k/m"},
+			{Path: base + "fixtures/a/b/cid/erf/h/k/n/m"},
+			{Path: base + "fixtures/a/b/cod/erf/h/k/m"},
+			{Path: base + "fixtures/a/b/cod/erf/h/k/n/m"},
+		},
 	}
 
-	if diff := cmp.Diff(got, want); diff != "" {
+	if diff := cmp.Diff(got.calls, want.calls); diff != "" {
 		t.Errorf("walked paths diff (-got +want):\n%s", diff)
 	}
 }
@@ -110,15 +164,17 @@ func TestGlob_SpecificPath(t *testing.T) {
 	}
 
 	var got walkFuncCalls
-	if err := p.Glob(got.walkFunc, WithTraceLogs(os.Stderr)); err != nil {
+	if err := p.Glob(got.walkFunc, traceLogOpt); err != nil {
 		t.Fatalf("Glob(...) = %v", err)
 	}
 
 	want := walkFuncCalls{
-		{Path: "fixtures/a/b/cod/erf/h/k/n/m"},
+		calls: []walkFuncArgs{
+			{Path: "fixtures/a/b/cod/erf/h/k/n/m"},
+		},
 	}
 
-	if diff := cmp.Diff(got, want); diff != "" {
+	if diff := cmp.Diff(got.calls, want.calls); diff != "" {
 		t.Errorf("walked paths diff (-got +want):\n%s", diff)
 	}
 }
@@ -138,23 +194,27 @@ func TestGlob_EmptyRoot(t *testing.T) {
 	}
 
 	var got walkFuncCalls
-	if err := p.Glob(got.walkFunc, WithTraceLogs(os.Stderr)); err != nil {
+	if err := p.Glob(got.walkFunc, traceLogOpt); err != nil {
 		t.Fatalf("Glob(...) = %v", err)
 	}
 
 	want := walkFuncCalls{
-		{Path: "a/b/cad/m"},
-		{Path: "a/b/cd/elf/g/j/absurdity/m"},
-		{Path: "a/b/cid/erf/h/k/m"},
-		{Path: "a/b/cid/erf/h/k/n/m"},
-		{Path: "a/b/cod/erf/h/k/m"},
-		{Path: "a/b/cod/erf/h/k/n/m"},
-		{Path: "a/b/cod/erf/i/m"},
-		{Path: "a/b/cod/erf/i/n/m"},
-		{Path: "m"},
+		calls: []walkFuncArgs{
+			{Path: "a/b/cad/m"},
+			{Path: "a/b/cd/elf/g/j/absurdity/m"},
+			{Path: "a/b/cid/erf/h/k/m"},
+			{Path: "a/b/cid/erf/h/k/n/m"},
+			{Path: "a/b/cid/erf/i/m"},
+			{Path: "a/b/cid/erf/i/n/m"},
+			{Path: "a/b/cod/erf/h/k/m"},
+			{Path: "a/b/cod/erf/h/k/n/m"},
+			{Path: "a/b/cod/erf/i/m"},
+			{Path: "a/b/cod/erf/i/n/m"},
+			{Path: "m"},
+		},
 	}
 
-	if diff := cmp.Diff(got, want); diff != "" {
+	if diff := cmp.Diff(got.calls, want.calls); diff != "" {
 		t.Errorf("walked paths diff (-got +want):\n%s", diff)
 	}
 }
@@ -167,19 +227,21 @@ func TestGlob_WithFilesystem(t *testing.T) {
 	}
 
 	var got walkFuncCalls
-	if err := p.Glob(got.walkFunc, WithTraceLogs(os.Stderr), WithFilesystem(os.DirFS("fixtures"))); err != nil {
+	if err := p.Glob(got.walkFunc, traceLogOpt, WithFilesystem(os.DirFS("fixtures"))); err != nil {
 		t.Fatalf("Glob(...) = %v", err)
 	}
 
 	want := walkFuncCalls{
-		{Path: "a/b/cd/elf/g/j/absurdity/m"},
-		{Path: "a/b/cid/erf/h/k/m"},
-		{Path: "a/b/cid/erf/h/k/n/m"},
-		{Path: "a/b/cod/erf/h/k/m"},
-		{Path: "a/b/cod/erf/h/k/n/m"},
+		calls: []walkFuncArgs{
+			{Path: "a/b/cd/elf/g/j/absurdity/m"},
+			{Path: "a/b/cid/erf/h/k/m"},
+			{Path: "a/b/cid/erf/h/k/n/m"},
+			{Path: "a/b/cod/erf/h/k/m"},
+			{Path: "a/b/cod/erf/h/k/n/m"},
+		},
 	}
 
-	if diff := cmp.Diff(got, want); diff != "" {
+	if diff := cmp.Diff(got.calls, want.calls); diff != "" {
 		t.Errorf("walked paths diff (-got +want):\n%s", diff)
 	}
 }
@@ -192,15 +254,17 @@ func TestGlob_SpecificPath_WithFilesystem(t *testing.T) {
 	}
 
 	var got walkFuncCalls
-	if err := p.Glob(got.walkFunc, WithTraceLogs(os.Stderr), WithFilesystem(os.DirFS("fixtures"))); err != nil {
+	if err := p.Glob(got.walkFunc, traceLogOpt, WithFilesystem(os.DirFS("fixtures"))); err != nil {
 		t.Fatalf("Glob(...) = %v", err)
 	}
 
 	want := walkFuncCalls{
-		{Path: "a/b/cod/erf/h/k/n/m"},
+		calls: []walkFuncArgs{
+			{Path: "a/b/cod/erf/h/k/n/m"},
+		},
 	}
 
-	if diff := cmp.Diff(got, want); diff != "" {
+	if diff := cmp.Diff(got.calls, want.calls); diff != "" {
 		t.Errorf("walked paths diff (-got +want):\n%s", diff)
 	}
 }
