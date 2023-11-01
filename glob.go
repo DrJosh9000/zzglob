@@ -19,62 +19,79 @@ func (p *Pattern) Glob(f fs.WalkDirFunc, opts ...GlobOption) error {
 		return errors.New("nil WalkDirFunc in arg to Glob")
 	}
 
-	gs := globState{
-		cfg: &globConfig{
-			translateSlashes: true,
-			traverseSymlinks: true,
-			traceLogger:      nil,
-			callback:         f,
-			filesystem:       nil,
-		},
-		root:   p.root,
-		states: singleton(p.initial),
+	cfg := &globConfig{
+		translateSlashes: true,
+		traverseSymlinks: true,
+		traceLogger:      nil,
+		callback:         f,
+		filesystem:       nil,
 	}
 	for _, o := range opts {
-		o(gs.cfg)
+		if o == nil {
+			continue
+		}
+		o(cfg)
 	}
 
 	// p.root always uses forward slashes. Translate (if needed)?
 	cleanRoot := path.Clean(p.root)
 	osRoot := cleanRoot
-	if gs.cfg.translateSlashes {
+	if cfg.translateSlashes {
 		osRoot = filepath.FromSlash(cleanRoot)
 	}
 
-	// Filesystem override?
-	if gs.cfg.filesystem == nil {
-		// Wasn't overridden
-		if p.initial == nil {
+	if p.initial == nil {
+		if cfg.filesystem == nil {
 			// The fastest way to stat the file is... to stat the file.
 			fi, err := os.Stat(osRoot)
-			return f(osRoot, fs.FileInfoToDirEntry(fi), err)
-		}
-
-		gs.cfg.filesystem = os.DirFS(osRoot)
-
-	} else {
-		if p.initial == nil {
+			if err := f(osRoot, fs.FileInfoToDirEntry(fi), err); err != nil {
+				if errors.Is(err, fs.SkipDir) || errors.Is(err, fs.SkipAll) {
+					return nil
+				}
+				return err
+			}
+		} else {
 			// Assume root sits at that path within the provided fs.FS.
-			fi, err := fs.Stat(gs.cfg.filesystem, cleanRoot)
-			return f(osRoot, fs.FileInfoToDirEntry(fi), err)
+			fi, err := fs.Stat(cfg.filesystem, cleanRoot)
+			if err := f(osRoot, fs.FileInfoToDirEntry(fi), err); err != nil {
+				if errors.Is(err, fs.SkipDir) || errors.Is(err, fs.SkipAll) {
+					return nil
+				}
+				return err
+			}
 		}
+		return nil
+	}
 
-		subfs, err := fs.Sub(gs.cfg.filesystem, cleanRoot)
+	gs := globState{
+		cfg:    cfg,
+		root:   p.root,
+		fs:     cfg.filesystem,
+		states: singleton(p.initial),
+	}
+
+	// Filesystem override?
+	if gs.fs == nil {
+		// Wasn't overridden
+		gs.fs = os.DirFS(osRoot)
+	} else {
+		subfs, err := fs.Sub(cfg.filesystem, cleanRoot)
 		if err != nil {
 			// That's unfortunate.
 			return fmt.Errorf("pattern root %q not valid within provided filesystem: %w", cleanRoot, err)
 		}
-		gs.cfg.filesystem = subfs
+		gs.fs = subfs
 	}
 
-	gs.logf("starting walk in fsys %v, root %q at . with %d states\n", gs.cfg.filesystem, gs.root, len(gs.states))
-	return fs.WalkDir(gs.cfg.filesystem, ".", gs.walkDirFunc)
+	gs.logf("starting walk in fsys %v, root %q at . with %d states\n", gs.fs, gs.root, len(gs.states))
+	return fs.WalkDir(gs.fs, ".", gs.walkDirFunc)
 }
 
 type globState struct {
 	depth  int
 	cfg    *globConfig
 	root   string
+	fs     fs.FS
 	states stateSet
 }
 
@@ -166,7 +183,7 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 		return nil
 	}
 
-	subfs, err := fs.Sub(gs.cfg.filesystem, fp)
+	subfs, err := fs.Sub(gs.fs, fp)
 	if err != nil {
 		gs.logf("error from fs.Sub(gs.fsys, %q): %v - passing to callback\n", fp, err)
 		return gs.cfg.callback(fp, d, err)
@@ -179,6 +196,7 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 		depth:  gs.depth + 1,
 		cfg:    gs.cfg,
 		root:   full,
+		fs:     subfs,
 		states: states,
 	}
 
