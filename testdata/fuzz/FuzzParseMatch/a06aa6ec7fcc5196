@@ -1,0 +1,11 @@
+go test fuzz v1
+string("[^0X0X0XXXXXX0X00XXXXX0000XXXXXXXXXXWWXXXXXWWXXXXXXXXWWXWW0X000000XXXX]")
+string("0")
+bool(true)
+bool(false)
+bool(false)
+bool(false)
+bool(false)
+bool(true)
+bool(true)
+bool(true)

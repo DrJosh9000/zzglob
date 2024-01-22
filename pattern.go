@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 )
 
 // Pattern is a parsed glob pattern.
@@ -313,11 +314,51 @@ func parseCharClass(tks *tokens, from *state) (end *state, err error) {
 
 		case punctuation:
 			switch t {
+			case '^':
+				// Char class is actually negated!
+				return parseNegatedCharClass(tks, from)
+
 			case ']':
 				return end, nil
 
 			default:
 				return nil, fmt.Errorf("invalid %c within char class", t)
+			}
+		}
+	}
+}
+
+// parseNegatedCharClass parses a negated char class. tks should start with the
+// the first token following `[^`.
+func parseNegatedCharClass(tks *tokens, from *state) (*state, error) {
+	runes := make(map[rune]struct{})
+	for {
+		t := tks.next()
+		if t == nil {
+			return nil, errors.New("unterminated negated char class - missing closing square bracket")
+		}
+		switch t := t.(type) {
+		case literal:
+			runes[rune(t)] = struct{}{}
+
+		case punctuation:
+			switch t {
+			case ']':
+				expr := make(negatedCCExp, 0, len(runes))
+				for r := range runes {
+					expr = append(expr, r)
+				}
+				slices.Sort(expr)
+
+				end := &state{}
+				from.Out = append(from.Out, edge{
+					Expr:  expr,
+					State: end,
+				})
+				return end, nil
+
+			default:
+				return nil, fmt.Errorf("invalid %c within negated char class", t)
 			}
 		}
 	}

@@ -1,0 +1,11 @@
+go test fuzz v1
+string("[^11\xd41001222222220 0000000 00000000]")
+string("0")
+bool(true)
+bool(false)
+bool(true)
+bool(true)
+bool(true)
+bool(true)
+bool(true)
+bool(false)

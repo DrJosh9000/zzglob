@@ -1,0 +1,11 @@
+go test fuzz v1
+string("[^y9A\x01o!7YC\x04b#75xC+Fa-C3Q'0\b\r2aȈ XW<n'.^/!A&\a[0CY9\x051$c:\x1aB\x7f\x06黐9\x95*YZlz8c\x12ZZ\x0f\x16z7\n&\f;%ºA,s$\x1c)XL0y8Ye(\x19Mb1Px7\x03EX\x1e99\vB`jqAԃ دHӳ7aҵGv1hakZ\\|>Àx{=gyyB?A#2A%2\x13\t40(8S81iDJ\x15a@YYR\"$t&۰BUA2CY}122\x00BC\x1b\x0edbx\x111\x02))rO7\x107\x148ٸcN 0\x1fxXT\x171AӇA2V12ڽ2#7]")
+string("B")
+bool(false)
+bool(true)
+bool(false)
+bool(true)
+bool(false)
+bool(true)
+bool(false)
+bool(false)

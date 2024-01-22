@@ -1,0 +1,11 @@
+go test fuzz v1
+string("[^YYY\xfb\xf2Y\xed00\xe4\xe1\x90\xda0\x9f\x9f⏚Y00YYXX00\xd4 \x8a0\xa5\x80\x8aY \xe50\x8e\xaf0\xd0 \x83\xf0Z0Y1aa0\x920C0C00YYY0Y0YYYYYY\xc5000a01YYY֘00Y00YYY\xcbY0\xb9Y\x96Y0\xb0Y00\xaaCYY0Y\x890\xaf0X\xf9Y\xbeY1\xaa\xcd\xf400\xa4\x80\xd0]")
+string("0")
+bool(false)
+bool(true)
+bool(true)
+bool(true)
+bool(false)
+bool(true)
+bool(false)
+bool(false)
