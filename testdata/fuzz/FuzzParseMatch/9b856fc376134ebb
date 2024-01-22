@@ -1,0 +1,11 @@
+go test fuzz v1
+string("[^7Bx8x2xɚxB22 x0xxx02xxxB20x0BxxxxCx0c00xc01BҾx00x0xBB0x80B800x0B8xx0xxx7x0x0xx88002280B0Bx0xxx0100B Bx7cxcxccc10200002cx 2X2xx2B2XxxXy2XXXX022cXX00002200000000000020720X00X0XXX20700000000000c007ccBcc07]")
+string("0")
+bool(false)
+bool(true)
+bool(false)
+bool(false)
+bool(true)
+bool(true)
+bool(true)
+bool(true)

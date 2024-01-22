@@ -65,7 +65,7 @@ func TestParse(t *testing.T) {
 func TestWriteDotSmoke(t *testing.T) {
 	tests := []string{
 		"a/b",
-		"a/b*c/d?e/{f,g}/[ij]/**/k",
+		"a/b*c/d?e/{f,g}/[ij]/**/[^k]l",
 	}
 	for _, pattern := range tests {
 		p, err := Parse(pattern, WithSwapSlashes(false))

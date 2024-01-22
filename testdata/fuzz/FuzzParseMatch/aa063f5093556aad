@@ -1,0 +1,11 @@
+go test fuzz v1
+string("[^ 000\xce\xe807\xbc\x88\xc7\xc90007700b\xb90 \xf1\xf1\xf1\xf1\xf1\xf1\xf1\xf1\xf1\xf1\xf1\xf110  \xf1\xf100\xf1\xbe \xe20\xd90 0b0b 0 111111101110 0 11111 1 1]")
+string("0")
+bool(true)
+bool(false)
+bool(true)
+bool(false)
+bool(false)
+bool(true)
+bool(false)
+bool(true)

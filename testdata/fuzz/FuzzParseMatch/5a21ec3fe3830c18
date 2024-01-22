@@ -1,0 +1,11 @@
+go test fuzz v1
+string("[^99090 99 999000 99998800\x0f9089888\xc1AA\n 808899A\xd1\x11\xe4\x01\x81\x02999\x1b9998\xbeA0\x05\xad\b\xad88֙\xc50\xc0\xd6\xc7\xeeA\xa6\xb0\xe8\xd6\xf3\xd1\xf9]")
+string("0")
+bool(true)
+bool(false)
+bool(false)
+bool(true)
+bool(true)
+bool(true)
+bool(false)
+bool(false)

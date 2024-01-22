@@ -1,0 +1,11 @@
+go test fuzz v1
+string("[^x\x90\x86\xdf07B9\xf2\xaa0B\xc3x77\x8a70x0x\x13x\x15Bx077\bxx9\xa82\xc4ɚy\xec22\xfb\xbd\xa42\xc50\v\xd7y\x00yy20xy\x93yxyx0xxx02xxxq20x0Bxxx00 00Ըcx0c00xc09BҾx00x0xBBʹx0X900bXX29x0x\xf4\x80009\xb2\xb1\xa3\xb4\xc00B920xx0xxx7y0y0xx99002291X0Bx0xxxAx00x xx xyxycxc 0X0200Ax\xcf 9b2\xf0\xcaAB2b\xfa\xfd\x94\xd5\xf6\xfe\xbf0X\x8e800770XXXa0XbaXX77xaX00007700000000000070770X00b07bbb70700000000000y077xxBxx07]")
+string("0")
+bool(false)
+bool(false)
+bool(false)
+bool(false)
+bool(true)
+bool(true)
+bool(true)
+bool(false)

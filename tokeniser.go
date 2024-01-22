@@ -35,9 +35,10 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 	}
 
 	// Tokenisation state.
-	escape := false   // the previous char was escapeChar
-	star := false     // the previous char was *
-	insideCC := false // within a char class
+	escape := false        // the previous char was escapeChar
+	star := false          // the previous char was *
+	insideCC := false      // within a char class
+	insideCCFirst := false // first token within a char class
 
 	// Walk through string, producing tokens.
 	for _, c := range p {
@@ -66,9 +67,19 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 				tks = append(tks, punctuation(']'))
 				insideCC = false
 
+			case '^':
+				// Negated char class only if ^ is first token inside [ ]
+				if insideCCFirst {
+					tks = append(tks, punctuation('^'))
+				} else {
+					tks = append(tks, literal('^'))
+				}
+
 			default:
 				tks = append(tks, literal(c))
 			}
+
+			insideCCFirst = false
 			continue
 		}
 
@@ -121,6 +132,7 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 		case '[':
 			if cfg.allowCharClass {
 				insideCC = true
+				insideCCFirst = true
 				tks = append(tks, punctuation('['))
 			} else {
 				tks = append(tks, literal('['))

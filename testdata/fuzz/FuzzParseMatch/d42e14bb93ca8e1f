@@ -1,0 +1,11 @@
+go test fuzz v1
+string("[^2\xcd20\xa1\xa4\xa2\xdd\xf3\xd0200A2\x8a\xa482080\xac\xb8802\x9908\xfc\xa700\xa4\xc10\x970 88 2082 \xc800\xe9\xea\x838\xd0A1220888A2\xb32\xb220!  2   \xcb\xea2\xc1\xad \xad22\x99   82220 88\xa9028\xc5]")
+string("0")
+bool(true)
+bool(false)
+bool(false)
+bool(true)
+bool(false)
+bool(true)
+bool(true)
+bool(false)

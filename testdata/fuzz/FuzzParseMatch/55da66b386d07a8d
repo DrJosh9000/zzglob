@@ -1,0 +1,11 @@
+go test fuzz v1
+string("[^a0b00xy!ǹ#ΧӲ2%;Jj(ۖɭȡĵ)cR樧}d*Dƪ8Ҁ{ZPHT+9.\u0080hVï\x04@$\t\nA3鎪&B'tƝީҗ|-X\x12?\x10\a\"Ggn~ƈ[`z\x0f墨r\x16҇\x1dl\\,\x17\x11q:IYoėsÝFfWkCv>\x1bK_15ume\x15^Q\x1fO6U\x1c\x034Ӆi\x18M\x13Ñ<\x02= \xb870]")
+string("0")
+bool(true)
+bool(false)
+bool(true)
+bool(true)
+bool(true)
+bool(true)
+bool(true)
+bool(false)
