@@ -9,7 +9,7 @@ A better glob library for Go
 
 * <abbr title="Done">✅</abbr> Glob in a deterministic order, like `fs.WalkDir`.
 * <abbr title="Done">✅</abbr> Support the classics like `?` and `*`, and also
-  modern conveniences like `**`, `{x,y,z}`, and `[abc]`.
+  modern conveniences like `**`, `{x,y,z}`, `[abc]`, and `[^abc]`.
 * <abbr title="Done">✅</abbr> Expand `~` to the current user's homedir.
 * <abbr title="Done">✅</abbr> Optionally traverse directory symlinks.
 * <abbr title="Done">✅</abbr> Avoid walking directories unnecessarily -
