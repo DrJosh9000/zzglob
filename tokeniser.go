@@ -35,17 +35,18 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 	}
 
 	// Tokenisation state.
-	escape := false        // the previous char was escapeChar
-	star := false          // the previous char was *
+	// prev is the previous rune read, but only where that rune influences the
+	// interpretation of the next rune, e.g. \ or *. Otherwise it is 0.
+	var prev rune
 	insideCC := false      // within a char class
 	insideCCFirst := false // first token within a char class
 
 	// Walk through string, producing tokens.
 	for _, c := range p {
 		// Escaping something?
-		if escape {
+		if prev == escapeChar {
 			// The escapeChar escaped c, so c is a literal.
-			escape = false
+			prev = 0
 			tks = append(tks, literal(c))
 			continue
 		}
@@ -57,7 +58,7 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 			switch c {
 			case escapeChar:
 				if cfg.allowEscaping { // Start of escape
-					escape = true
+					prev = escapeChar
 				} else {
 					tks = append(tks, literal(escapeChar))
 				}
@@ -84,8 +85,8 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 		}
 
 		// Wishing upon a *?
-		if star {
-			star = false
+		if prev == '*' {
+			prev = 0
 			if c == '*' {
 				tks = append(tks, punctuation('⁑'))
 				continue
@@ -101,7 +102,7 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 			// It could be a * or **.
 			if cfg.allowStar {
 				if cfg.allowDoubleStar {
-					star = true
+					prev = '*'
 				} else {
 					tks = append(tks, punctuation('*'))
 				}
@@ -115,7 +116,7 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 				break
 			}
 			// Next char is escaped.
-			escape = true
+			prev = escapeChar
 
 		case pathSep:
 			// Always represent the path separator with / for consistency
@@ -162,11 +163,11 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 		}
 	}
 
-	// Escape or * at end of string?
-	if escape {
+	// Unprocessed 'prev' at end of string?
+	switch prev {
+	case escapeChar:
 		tks = append(tks, literal(escapeChar))
-	}
-	if star {
+	case '*':
 		tks = append(tks, punctuation('*'))
 	}
 
