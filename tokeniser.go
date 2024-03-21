@@ -7,15 +7,49 @@ import (
 
 // Lexer tokens
 type (
-	literal     rune // not any of the below
-	punctuation rune // *, ** (as ⁑), ?, {, }, [, ], ~, or comma
+	literal     rune // a token that means the rune that it is
+	punctuation rune // a token that probably has a special meaning
+
+	// Examples of punctuation are *, **, ?, {, }, [, ], ~, or comma.
+	// These are represented as themselves, except for ** which is represented
+	// as ⁑.
+	// With shell extglob enabled, this also includes ?(, +(, *(, @(, !(, and ),
+	// and the | character used as a separator within those.
+)
+
+// Here's how to squeeze "multiple rune" punctuation into a single rune:
+// consts with special values.
+const (
+	punctDoubleStar    punctuation = '⁑'  // **
+	punctQuestionParen punctuation = -101 // ?(
+	punctPlusParen     punctuation = -102 // +(
+	punctStarParen     punctuation = -103 // *(
+	punctAtParen       punctuation = -104 // @(
+	punctBangParen     punctuation = -105 // !(
 )
 
 func (literal) tokenTag()     {}
 func (punctuation) tokenTag() {}
 
-func (l literal) String() string     { return fmt.Sprintf("literal(%q)", rune(l)) }
-func (p punctuation) String() string { return fmt.Sprintf("punctuation(%q)", rune(p)) }
+func (l literal) String() string { return fmt.Sprintf("literal(%q)", rune(l)) }
+
+func (p punctuation) String() string {
+	switch p {
+	case punctDoubleStar:
+		return `punctuation("**")`
+	case punctQuestionParen:
+		return `punctuation("?(")`
+	case punctPlusParen:
+		return `punctuation("+(")`
+	case punctStarParen:
+		return `punctuation("*(")`
+	case punctAtParen:
+		return `punctuation("@(")`
+	case punctBangParen:
+		return `punctuation("!(")`
+	}
+	return fmt.Sprintf("punctuation(%q)", rune(p))
+}
 
 type token interface {
 	tokenTag()
@@ -84,29 +118,86 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 			continue
 		}
 
-		// Wishing upon a *?
-		if prev == '*' {
+		// Possible double-rune token?
+		switch prev {
+		case '*':
+			// Could be *, **, or *( depending on options
 			prev = 0
-			if c == '*' {
-				tks = append(tks, punctuation('⁑'))
+			switch {
+			case c == '*' && cfg.allowDoubleStar:
+				tks = append(tks, punctDoubleStar)
 				continue
+
+			case c == '(' && cfg.enableShellExtGlob:
+				tks = append(tks, punctStarParen)
+				continue
+
+			default:
+				// The previous char was * with possible extra meaning, but c
+				// doesn't make it anything special.
+				// Emit *, then process c normally.
+				if cfg.allowStar {
+					tks = append(tks, punctuation('*'))
+				} else {
+					tks = append(tks, literal('*'))
+				}
 			}
 
-			// The previous char was a *, but this one isn't.
-			// Emit *, then process c normally.
-			tks = append(tks, punctuation('*'))
+		case '?':
+			// Could be ? or ?( if shell extglob is enabled
+			prev = 0
+			if c == '(' && cfg.enableShellExtGlob {
+				tks = append(tks, punctQuestionParen)
+				continue
+			}
+			if cfg.allowQuestion {
+				tks = append(tks, punctuation('?'))
+			} else {
+				tks = append(tks, literal('?'))
+			}
+
+		case '+':
+			// Could be + or +( if shell extglob is enabled
+			prev = 0
+			if c == '(' && cfg.enableShellExtGlob {
+				tks = append(tks, punctPlusParen)
+				continue
+			}
+			tks = append(tks, literal('+'))
+
+		case '@':
+			// Could be @ or @( if shell extglob is enabled
+			prev = 0
+			if c == '(' && cfg.enableShellExtGlob {
+				tks = append(tks, punctAtParen)
+				continue
+			}
+			tks = append(tks, literal('@'))
+
+		case '!':
+			// Could be ! or !( if shell extglob is enabled
+			prev = 0
+			if c == '(' && cfg.enableShellExtGlob {
+				tks = append(tks, punctBangParen)
+				continue
+			}
+			tks = append(tks, literal('!'))
 		}
 
 		switch c {
-		case '*': // previous char is not *
-			// It could be a * or **.
-			if cfg.allowStar {
-				if cfg.allowDoubleStar {
-					prev = '*'
-				} else {
-					tks = append(tks, punctuation('*'))
-				}
-			} else {
+		case '*': // note prev != '*'
+			// It could be a * or ** or *( depending on options.
+			switch {
+			case (cfg.allowStar && cfg.allowDoubleStar) || cfg.enableShellExtGlob:
+				// It could be ** or *(
+				prev = '*'
+
+			case cfg.allowStar:
+				// It has to be *
+				tks = append(tks, punctuation('*'))
+
+			default:
+				// * is not allowed to be anything special.
 				tks = append(tks, literal('*'))
 			}
 
@@ -140,6 +231,11 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 			}
 
 		case '?':
+			if cfg.enableShellExtGlob {
+				// It could be ? or ?(
+				prev = '?'
+				continue
+			}
 			if cfg.allowQuestion {
 				tks = append(tks, punctuation('?'))
 			} else {
@@ -157,6 +253,22 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 				tks = append(tks, literal(c))
 			}
 
+		case '+', '@', '!':
+			// These could be +(, @(, or !( if shell extglob is enabled
+			if cfg.enableShellExtGlob {
+				prev = c
+			} else {
+				tks = append(tks, literal(c))
+			}
+
+		case '|', ')':
+			// This is the shell extglob special separator and terminator
+			if cfg.enableShellExtGlob {
+				tks = append(tks, punctuation(c))
+			} else {
+				tks = append(tks, literal(c))
+			}
+
 		default:
 			// It's a literal.
 			tks = append(tks, literal(c))
@@ -167,8 +279,23 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 	switch prev {
 	case escapeChar:
 		tks = append(tks, literal(escapeChar))
+
 	case '*':
-		tks = append(tks, punctuation('*'))
+		if cfg.allowStar {
+			tks = append(tks, punctuation('*'))
+		} else {
+			tks = append(tks, literal('*'))
+		}
+
+	case '?':
+		if cfg.allowQuestion {
+			tks = append(tks, punctuation('?'))
+		} else {
+			tks = append(tks, literal('?'))
+		}
+
+	case '+', '@', '!':
+		tks = append(tks, literal(prev))
 	}
 
 	return &tks
