@@ -5,25 +5,27 @@ import (
 )
 
 var defaultParseConfig = parseConfig{
-	allowEscaping:    filepath.Separator == '/',
-	allowQuestion:    true,
-	allowStar:        true,
-	allowDoubleStar:  true,
-	allowAlternation: true,
-	allowCharClass:   true,
-	swapSlashes:      filepath.Separator != '/',
-	expandTilde:      true,
+	allowEscaping:      filepath.Separator == '/',
+	allowQuestion:      true,
+	allowStar:          true,
+	allowDoubleStar:    true,
+	allowAlternation:   true,
+	allowCharClass:     true,
+	enableShellExtGlob: false,
+	swapSlashes:        filepath.Separator != '/',
+	expandTilde:        true,
 }
 
 type parseConfig struct {
-	allowEscaping    bool
-	allowQuestion    bool
-	allowStar        bool
-	allowDoubleStar  bool
-	allowAlternation bool
-	allowCharClass   bool
-	swapSlashes      bool
-	expandTilde      bool
+	allowEscaping      bool
+	allowQuestion      bool
+	allowStar          bool
+	allowDoubleStar    bool
+	allowAlternation   bool
+	allowCharClass     bool
+	enableShellExtGlob bool
+	swapSlashes        bool
+	expandTilde        bool
 }
 
 // ParseOption functions optionally alter how patterns are parsed.
@@ -80,6 +82,16 @@ func AllowAlternation(enable bool) ParseOption {
 func AllowCharClass(enable bool) ParseOption {
 	return func(o *parseConfig) {
 		o.allowCharClass = enable
+	}
+}
+
+// EnableShellExtGlob changes how ?(...), *(...), +(...), @(...), and !(...) are
+// parsed. If enabled, they are treated similarly to Bash extglob patterns. See
+// https://www.gnu.org/software/bash/manual/html_node/Pattern-Matching.html
+// Disabled by default.
+func EnableShellExtGlob(enable bool) ParseOption {
+	return func(o *parseConfig) {
+		o.enableShellExtGlob = enable
 	}
 }
 
