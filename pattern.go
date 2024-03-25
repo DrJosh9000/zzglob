@@ -220,7 +220,7 @@ func parseSequence(tkns *tokens, insideAlt bool) (start, end *state, endedWith t
 					State: end,
 				})
 
-			case '⁑':
+			case punctDoubleStar:
 				end.Out = append(end.Out, edge{
 					Expr:  doubleStarExp{},
 					State: end,
