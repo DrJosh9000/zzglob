@@ -344,13 +344,22 @@ func parseNegatedCharClass(tks *tokens, from *state) (*state, error) {
 		case punctuation:
 			switch t {
 			case ']':
+				end := &state{}
+
 				expr := make(negatedCCExp, 0, len(runes))
 				for r := range runes {
 					expr = append(expr, r)
 				}
+				if len(expr) == 1 {
+					from.Out = append(from.Out, edge{
+						Expr:  negatedLiteralExp(expr[0]),
+						State: end,
+					})
+					return end, nil
+				}
+
 				slices.Sort(expr)
 
-				end := &state{}
 				from.Out = append(from.Out, edge{
 					Expr:  expr,
 					State: end,
