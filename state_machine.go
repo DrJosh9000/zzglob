@@ -1,9 +1,14 @@
 package zzglob
 
+import "maps"
+
 // state represents a possible state of a state machine.
 type state struct {
 	// Out contains all possible transitions out of this state.
 	Out []edge
+
+	// Default is a state that is used when no Out edges match.
+	Default *state
 
 	// Accept is whether the state is a fully-matched state.
 	Accept bool
@@ -20,7 +25,7 @@ type edge struct {
 	Expr expression
 
 	// State is the machine state that the machine transitions into when Expr
-	// is satisfied.
+	// is satisfied. If it is nil, the state machine drops it.
 	State *state
 }
 
@@ -30,25 +35,24 @@ func singleton(s *state) stateSet { return stateSet{s: {}} }
 // matchSegment progresses an initial set of states, one rune from the segment
 // at a time.
 func matchSegment(initial stateSet, segment string) stateSet {
-	a := make(stateSet, len(initial))
-	b := make(stateSet, len(initial))
-	for n := range initial {
-		a[n] = struct{}{}
+	if len(initial) == 0 {
+		return nil
 	}
+
+	a := maps.Clone(initial)
+	b := make(stateSet, len(initial))
 	transitiveClosure(a)
 
 	for _, r := range segment {
-		if len(a) == 0 {
-			return nil
-		}
 		for len(a) > 0 {
 			// Treating a as a "queue", pop one state (n).
 			var n *state
-			for x := range a {
-				n = x
+			for n = range a {
 				break
 			}
 			delete(a, n)
+
+			anyMatch := false
 			for _, e := range n.Out {
 				if e.Expr == nil {
 					// The queue should already contain e.State because of
@@ -59,12 +63,24 @@ func matchSegment(initial stateSet, segment string) stateSet {
 				if !matched {
 					continue
 				}
+				anyMatch = true
+				if e.State == nil {
+					continue
+				}
 				b[e.State] = struct{}{}
+			}
+
+			if !anyMatch && n.Default != nil {
+				b[n.Default] = struct{}{}
 			}
 		}
 		a, b = b, a
+		if len(a) == 0 {
+			return nil
+		}
 		transitiveClosure(a)
 	}
+
 	return a
 }
 
@@ -80,7 +96,7 @@ func transitiveClosure(states stateSet) {
 		q = q[1:]
 
 		for _, e := range n.Out {
-			if e.Expr != nil {
+			if e.Expr != nil || e.State == nil {
 				continue
 			}
 			if _, seen := states[e.State]; seen {
