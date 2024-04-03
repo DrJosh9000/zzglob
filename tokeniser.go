@@ -11,8 +11,7 @@ type (
 	punctuation rune // a token that probably has a special meaning
 
 	// Examples of punctuation are *, **, ?, {, }, [, ], ~, or comma.
-	// These are represented as themselves, except for ** which is represented
-	// as ⁑.
+	// These are generally represented as themselves.
 	// With shell extglob enabled, this also includes ?(, +(, *(, @(, !(, and ),
 	// and the | character used as a separator within those.
 )
@@ -20,12 +19,13 @@ type (
 // Here's how to squeeze "multiple rune" punctuation into a single rune:
 // consts with special values.
 const (
-	punctDoubleStar    punctuation = '⁑'  // **
-	punctQuestionParen punctuation = -101 // ?(
-	punctPlusParen     punctuation = -102 // +(
-	punctStarParen     punctuation = -103 // *(
-	punctAtParen       punctuation = -104 // @(
-	punctBangParen     punctuation = -105 // !(
+	punctDoubleStar    punctuation = -100 // **
+	punctBracketCaret  punctuation = -101 // [^
+	punctQuestionParen punctuation = -102 // ?(
+	punctPlusParen     punctuation = -103 // +(
+	punctStarParen     punctuation = -104 // *(
+	punctAtParen       punctuation = -105 // @(
+	punctBangParen     punctuation = -106 // !(
 )
 
 func (literal) tokenTag()     {}
@@ -37,6 +37,8 @@ func (p punctuation) String() string {
 	switch p {
 	case punctDoubleStar:
 		return `punctuation("**")`
+	case punctBracketCaret:
+		return `punctuation("[^")`
 	case punctQuestionParen:
 		return `punctuation("?(")`
 	case punctPlusParen:
@@ -72,8 +74,7 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 	// prev is the previous rune read, but only where that rune influences the
 	// interpretation of the next rune, e.g. \ or *. Otherwise it is 0.
 	var prev rune
-	insideCC := false      // within a char class
-	insideCCFirst := false // first token within a char class
+	insideCC := false // within a char class
 
 	// Walk through string, producing tokens.
 	for _, c := range p {
@@ -82,39 +83,6 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 			// The escapeChar escaped c, so c is a literal.
 			prev = 0
 			tks = append(tks, literal(c))
-			continue
-		}
-
-		// Within a char class? No escaping required, other than ].
-		// But the user can optionally escape everything, and must if they want
-		// ], so escape is higher priority.
-		if insideCC {
-			switch c {
-			case escapeChar:
-				if cfg.allowEscaping { // Start of escape
-					prev = escapeChar
-				} else {
-					tks = append(tks, literal(escapeChar))
-				}
-
-			case ']':
-				// End of cc
-				tks = append(tks, punctuation(']'))
-				insideCC = false
-
-			case '^':
-				// Negated char class only if ^ is first token inside [ ]
-				if insideCCFirst {
-					tks = append(tks, punctuation('^'))
-				} else {
-					tks = append(tks, literal('^'))
-				}
-
-			default:
-				tks = append(tks, literal(c))
-			}
-
-			insideCCFirst = false
 			continue
 		}
 
@@ -182,6 +150,45 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 				continue
 			}
 			tks = append(tks, literal('!'))
+
+		case '[':
+			prev = 0
+			insideCC = true
+			if c == '^' {
+				tks = append(tks, punctBracketCaret)
+				continue
+			} else {
+				tks = append(tks, punctuation('['))
+			}
+		}
+
+		// Within a char class? No escaping required, other than ].
+		// But the user can optionally escape everything, and must if they want
+		// ], so escape is higher priority.
+		if insideCC {
+			switch c {
+			case escapeChar:
+				if cfg.allowEscaping { // Start of escape
+					prev = escapeChar
+				} else {
+					tks = append(tks, literal(escapeChar))
+				}
+
+			case ']':
+				// End of cc
+				tks = append(tks, punctuation(']'))
+				insideCC = false
+
+			case '^':
+				// Negated char class only if ^ is first char inside [ ]
+				// That's handled by prev switch
+				tks = append(tks, literal('^'))
+
+			default:
+				tks = append(tks, literal(c))
+			}
+
+			continue
 		}
 
 		switch c {
@@ -223,9 +230,8 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 
 		case '[':
 			if cfg.allowCharClass {
-				insideCC = true
-				insideCCFirst = true
-				tks = append(tks, punctuation('['))
+				// It could be [ or [^
+				prev = '['
 			} else {
 				tks = append(tks, literal('['))
 			}
@@ -294,7 +300,7 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 			tks = append(tks, literal('?'))
 		}
 
-	case '+', '@', '!':
+	case '+', '@', '!', '[':
 		tks = append(tks, literal(prev))
 	}
 

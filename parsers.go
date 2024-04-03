@@ -72,6 +72,16 @@ func parseSequence(tkns *tokens, insideAlt bool) (start, end *state, endedWith t
 				}
 				end = ed
 
+			case ']':
+				appendExp(literalExp(']'))
+
+			case punctBracketCaret:
+				ed, err := parseNegatedCharClass(tkns, end)
+				if err != nil {
+					return nil, nil, nil, err
+				}
+				end = ed
+
 			default:
 				return nil, nil, nil, fmt.Errorf("invalid punctuation %c", t)
 			}
@@ -130,17 +140,10 @@ func parseCharClass(tks *tokens, from *state) (end *state, err error) {
 			})
 
 		case punctuation:
-			switch t {
-			case '^':
-				// Char class is actually negated!
-				return parseNegatedCharClass(tks, from)
-
-			case ']':
-				return end, nil
-
-			default:
+			if t != ']' {
 				return nil, fmt.Errorf("invalid %c within char class", t)
 			}
+			return end, nil
 		}
 	}
 }
@@ -159,33 +162,30 @@ func parseNegatedCharClass(tks *tokens, from *state) (*state, error) {
 			runes[rune(t)] = struct{}{}
 
 		case punctuation:
-			switch t {
-			case ']':
-				end := &state{}
+			if t != ']' {
+				return nil, fmt.Errorf("invalid %c within negated char class", t)
+			}
+			end := &state{}
 
-				expr := make(negatedCCExp, 0, len(runes))
-				for r := range runes {
-					expr = append(expr, r)
-				}
-				if len(expr) == 1 {
-					from.Out = append(from.Out, edge{
-						Expr:  negatedLiteralExp(expr[0]),
-						State: end,
-					})
-					return end, nil
-				}
-
-				slices.Sort(expr)
-
+			expr := make(negatedCCExp, 0, len(runes))
+			for r := range runes {
+				expr = append(expr, r)
+			}
+			if len(expr) == 1 {
 				from.Out = append(from.Out, edge{
-					Expr:  expr,
+					Expr:  negatedLiteralExp(expr[0]),
 					State: end,
 				})
 				return end, nil
-
-			default:
-				return nil, fmt.Errorf("invalid %c within negated char class", t)
 			}
+
+			slices.Sort(expr)
+
+			from.Out = append(from.Out, edge{
+				Expr:  expr,
+				State: end,
+			})
+			return end, nil
 		}
 	}
 }

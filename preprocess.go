@@ -20,10 +20,10 @@ func preprocess(in tokens) tokens {
 	}
 	prefixSubs := []replacement{
 		{
-			// Prefix ⁑/ becomes {,⁑/}
-			find: tokens{punctuation('⁑'), literal('/')},
+			// Prefix **/ becomes {,**/}
+			find: tokens{punctDoubleStar, literal('/')},
 			sub: tokens{
-				punctuation('{'), punctuation(','), punctuation('⁑'),
+				punctuation('{'), punctuation(','), punctDoubleStar,
 				literal('/'), punctuation('}'),
 			},
 		},
@@ -43,13 +43,13 @@ func preprocess(in tokens) tokens {
 
 	allSubs := []replacement{
 		{
-			// /⁑/ becomes /{,⁑/}
+			// /**/ becomes /{,**/}
 			find: tokens{
-				literal('/'), punctuation('⁑'), literal('/'),
+				literal('/'), punctDoubleStar, literal('/'),
 			},
 			sub: tokens{
 				literal('/'), punctuation('{'), punctuation(','),
-				punctuation('⁑'), literal('/'), punctuation('}'),
+				punctDoubleStar, literal('/'), punctuation('}'),
 			},
 		},
 	}
