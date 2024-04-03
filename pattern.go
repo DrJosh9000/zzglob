@@ -45,7 +45,7 @@ func Parse(pattern string, opts ...ParseOption) (*Pattern, error) {
 	}
 
 	// The terminal state is terminal.
-	terminal.Terminal = true
+	terminal.Accept = true
 
 	// Remove redundant nil edges, where possible. This should only ever remove
 	// edges and possibly redundant intermediate states.
@@ -107,7 +107,7 @@ func (p *Pattern) WriteDot(w io.Writer, hilite stateSet) error {
 		seen[s] = true
 
 		shape := "circle"
-		if s.Terminal {
+		if s.Accept {
 			shape = "doublecircle"
 		}
 		fill := "white"

@@ -128,7 +128,7 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 
 	terminal := false
 	for s := range states {
-		if s.Terminal {
+		if s.Accept {
 			terminal = true
 			gs.logf("\t(at least one terminal state)\n")
 			break

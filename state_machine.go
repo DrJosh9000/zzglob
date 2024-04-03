@@ -1,12 +1,15 @@
 package zzglob
 
+// reject is a state which causes the machine to reject the input immediately.
+var reject = &state{}
+
 // state represents a possible state of a state machine.
 type state struct {
 	// Out contains all possible transitions out of this state.
 	Out []edge
 
-	// Terminal is whether the state is a fully-matched state.
-	Terminal bool
+	// Accept is whether the state is a fully-matched state.
+	Accept bool
 }
 
 // stateSet represents a set of possible machine states.
