@@ -33,6 +33,10 @@ func singleton(s *state) stateSet { return stateSet{s: {}} }
 // matchSegment progresses an initial set of states, one rune from the segment
 // at a time.
 func matchSegment(initial stateSet, segment string) stateSet {
+	if len(initial) == 0 {
+		return nil
+	}
+
 	a := make(stateSet, len(initial))
 	b := make(stateSet, len(initial))
 	for n := range initial {
@@ -41,17 +45,14 @@ func matchSegment(initial stateSet, segment string) stateSet {
 	transitiveClosure(a)
 
 	for _, r := range segment {
-		if len(a) == 0 {
-			return nil
-		}
 		for len(a) > 0 {
 			// Treating a as a "queue", pop one state (n).
 			var n *state
-			for x := range a {
-				n = x
+			for n = range a {
 				break
 			}
 			delete(a, n)
+
 			for _, e := range n.Out {
 				if e.Expr == nil {
 					// The queue should already contain e.State because of
@@ -66,8 +67,17 @@ func matchSegment(initial stateSet, segment string) stateSet {
 			}
 		}
 		a, b = b, a
+		if len(a) == 0 {
+			return nil
+		}
 		transitiveClosure(a)
+		for n := range a {
+			if n == reject {
+				return nil
+			}
+		}
 	}
+
 	return a
 }
 
