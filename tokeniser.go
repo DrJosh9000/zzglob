@@ -1,64 +1,79 @@
 package zzglob
 
 import (
-	"fmt"
 	"strings"
 )
 
 // Lexer tokens
-type (
-	literal     rune // a token that means the rune that it is
-	punctuation rune // a token that probably has a special meaning
-
-	// Examples of punctuation are *, **, ?, {, }, [, ], ~, or comma.
-	// These are generally represented as themselves.
-	// With shell extglob enabled, this also includes ?(, +(, *(, @(, !(, and ),
-	// and the | character used as a separator within those.
-)
-
-// Here's how to squeeze "multiple rune" punctuation into a single rune:
-// consts with special values.
-const (
-	punctDoubleStar    punctuation = -100 // **
-	punctBracketCaret  punctuation = -101 // [^
-	punctQuestionParen punctuation = -102 // ?(
-	punctPlusParen     punctuation = -103 // +(
-	punctStarParen     punctuation = -104 // *(
-	punctAtParen       punctuation = -105 // @(
-	punctBangParen     punctuation = -106 // !(
-)
-
-func (literal) tokenTag()     {}
-func (punctuation) tokenTag() {}
-
-func (l literal) String() string { return fmt.Sprintf("literal(%q)", rune(l)) }
-
-func (p punctuation) String() string {
-	switch p {
-	case punctDoubleStar:
-		return `punctuation("**")`
-	case punctBracketCaret:
-		return `punctuation("[^")`
-	case punctQuestionParen:
-		return `punctuation("?(")`
-	case punctPlusParen:
-		return `punctuation("+(")`
-	case punctStarParen:
-		return `punctuation("*(")`
-	case punctAtParen:
-		return `punctuation("@(")`
-	case punctBangParen:
-		return `punctuation("!(")`
-	}
-	return fmt.Sprintf("punctuation(%q)", rune(p))
-}
-
-type token interface {
-	tokenTag()
-	String() string
-}
+// A non-negative token is a literal (it means the rune that it is).
+// A negative token has special meaning (it's a token).
+type token rune
 
 type tokens []token
+
+// Special tokens.
+const (
+	tokenStar          token = -50  // *
+	tokenQuestion      token = -51  // ?
+	tokenOpenBrace     token = -52  // {
+	tokenCloseBrace    token = -53  // }
+	tokenOpenBracket   token = -54  // [
+	tokenCloseBracket  token = -55  // ]
+	tokenTilde         token = -56  // ~
+	tokenComma         token = -57  // ,
+	tokenPipe          token = -58  // |
+	tokenOpenParen     token = -59  // (
+	tokenCloseParen    token = -60  // )
+	tokenDoubleStar    token = -100 // **
+	tokenBracketCaret  token = -101 // [^
+	tokenQuestionParen token = -102 // ?(
+	tokenPlusParen     token = -103 // +(
+	tokenStarParen     token = -104 // *(
+	tokenAtParen       token = -105 // @(
+	tokenBangParen     token = -106 // !(
+)
+
+func (t token) String() string {
+	switch t {
+	case tokenStar:
+		return "*"
+	case tokenQuestion:
+		return "?"
+	case tokenOpenBrace:
+		return "{"
+	case tokenCloseBrace:
+		return "}"
+	case tokenOpenBracket:
+		return "["
+	case tokenCloseBracket:
+		return "]"
+	case tokenTilde:
+		return "~"
+	case tokenComma:
+		return ","
+	case tokenPipe:
+		return "|"
+	case tokenOpenParen:
+		return "("
+	case tokenCloseParen:
+		return ")"
+	case tokenDoubleStar:
+		return "**"
+	case tokenBracketCaret:
+		return "[^"
+	case tokenQuestionParen:
+		return "?("
+	case tokenPlusParen:
+		return "+("
+	case tokenStarParen:
+		return "*("
+	case tokenAtParen:
+		return "@("
+	case tokenBangParen:
+		return "!("
+	}
+	return string(rune(t))
+}
 
 func tokenise(p string, cfg *parseConfig) *tokens {
 	// Most tokens are single runes, so preallocate len(p).
@@ -82,7 +97,7 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 		if prev == escapeChar {
 			// The escapeChar escaped c, so c is a literal.
 			prev = 0
-			tks = append(tks, literal(c))
+			tks = append(tks, token(c))
 			continue
 		}
 
@@ -93,11 +108,11 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 			prev = 0
 			switch {
 			case c == '*' && cfg.allowDoubleStar:
-				tks = append(tks, punctDoubleStar)
+				tks = append(tks, tokenDoubleStar)
 				continue
 
 			case c == '(' && cfg.enableShellExtGlob:
-				tks = append(tks, punctStarParen)
+				tks = append(tks, tokenStarParen)
 				continue
 
 			default:
@@ -105,9 +120,9 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 				// doesn't make it anything special.
 				// Emit *, then process c normally.
 				if cfg.allowStar {
-					tks = append(tks, punctuation('*'))
+					tks = append(tks, tokenStar)
 				} else {
-					tks = append(tks, literal('*'))
+					tks = append(tks, token('*'))
 				}
 			}
 
@@ -115,50 +130,50 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 			// Could be ? or ?( if shell extglob is enabled
 			prev = 0
 			if c == '(' && cfg.enableShellExtGlob {
-				tks = append(tks, punctQuestionParen)
+				tks = append(tks, tokenQuestionParen)
 				continue
 			}
 			if cfg.allowQuestion {
-				tks = append(tks, punctuation('?'))
+				tks = append(tks, tokenQuestion)
 			} else {
-				tks = append(tks, literal('?'))
+				tks = append(tks, token('?'))
 			}
 
 		case '+':
 			// Could be + or +( if shell extglob is enabled
 			prev = 0
 			if c == '(' && cfg.enableShellExtGlob {
-				tks = append(tks, punctPlusParen)
+				tks = append(tks, tokenPlusParen)
 				continue
 			}
-			tks = append(tks, literal('+'))
+			tks = append(tks, token('+'))
 
 		case '@':
 			// Could be @ or @( if shell extglob is enabled
 			prev = 0
 			if c == '(' && cfg.enableShellExtGlob {
-				tks = append(tks, punctAtParen)
+				tks = append(tks, tokenAtParen)
 				continue
 			}
-			tks = append(tks, literal('@'))
+			tks = append(tks, token('@'))
 
 		case '!':
 			// Could be ! or !( if shell extglob is enabled
 			prev = 0
 			if c == '(' && cfg.enableShellExtGlob {
-				tks = append(tks, punctBangParen)
+				tks = append(tks, tokenBangParen)
 				continue
 			}
-			tks = append(tks, literal('!'))
+			tks = append(tks, token('!'))
 
 		case '[':
 			prev = 0
 			insideCC = true
 			if c == '^' {
-				tks = append(tks, punctBracketCaret)
+				tks = append(tks, tokenBracketCaret)
 				continue
 			} else {
-				tks = append(tks, punctuation('['))
+				tks = append(tks, tokenOpenBracket)
 			}
 		}
 
@@ -171,21 +186,21 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 				if cfg.allowEscaping { // Start of escape
 					prev = escapeChar
 				} else {
-					tks = append(tks, literal(escapeChar))
+					tks = append(tks, token(escapeChar))
 				}
 
 			case ']':
 				// End of cc
-				tks = append(tks, punctuation(']'))
+				tks = append(tks, tokenCloseBracket)
 				insideCC = false
 
 			case '^':
 				// Negated char class only if ^ is first char inside [ ]
 				// That's handled by prev switch
-				tks = append(tks, literal('^'))
+				tks = append(tks, token('^'))
 
 			default:
-				tks = append(tks, literal(c))
+				tks = append(tks, token(c))
 			}
 
 			continue
@@ -201,16 +216,16 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 
 			case cfg.allowStar:
 				// It has to be *
-				tks = append(tks, punctuation('*'))
+				tks = append(tks, tokenStar)
 
 			default:
 				// * is not allowed to be anything special.
-				tks = append(tks, literal('*'))
+				tks = append(tks, token('*'))
 			}
 
 		case escapeChar:
 			if !cfg.allowEscaping {
-				tks = append(tks, literal(escapeChar))
+				tks = append(tks, token(escapeChar))
 				break
 			}
 			// Next char is escaped.
@@ -219,13 +234,13 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 		case pathSep:
 			// Always represent the path separator with / for consistency
 			// with io/fs.
-			tks = append(tks, literal('/'))
+			tks = append(tks, token('/'))
 
 		case '~':
 			if cfg.expandTilde {
-				tks = append(tks, punctuation('~'))
+				tks = append(tks, tokenTilde)
 			} else {
-				tks = append(tks, literal('~'))
+				tks = append(tks, token('~'))
 			}
 
 		case '[':
@@ -233,7 +248,7 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 				// It could be [ or [^
 				prev = '['
 			} else {
-				tks = append(tks, literal('['))
+				tks = append(tks, token('['))
 			}
 
 		case '?':
@@ -243,20 +258,27 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 				continue
 			}
 			if cfg.allowQuestion {
-				tks = append(tks, punctuation('?'))
+				tks = append(tks, tokenQuestion)
 			} else {
-				tks = append(tks, literal('?'))
+				tks = append(tks, token('?'))
 			}
 
 		case ']':
 			// We only get here if insideCC is false...
-			tks = append(tks, literal(']'))
+			tks = append(tks, token(']'))
 
 		case '{', '}', ',':
 			if cfg.allowAlternation {
-				tks = append(tks, punctuation(c))
+				switch c {
+				case '{':
+					tks = append(tks, tokenOpenBrace)
+				case '}':
+					tks = append(tks, tokenCloseBrace)
+				case ',':
+					tks = append(tks, tokenComma)
+				}
 			} else {
-				tks = append(tks, literal(c))
+				tks = append(tks, token(c))
 			}
 
 		case '+', '@', '!':
@@ -264,56 +286,61 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 			if cfg.enableShellExtGlob {
 				prev = c
 			} else {
-				tks = append(tks, literal(c))
+				tks = append(tks, token(c))
 			}
 
 		case '|', ')':
 			// This is the shell extglob special separator and terminator
 			if cfg.enableShellExtGlob {
-				tks = append(tks, punctuation(c))
+				switch c {
+				case '|':
+					tks = append(tks, tokenPipe)
+				case ')':
+					tks = append(tks, tokenCloseParen)
+				}
 			} else {
-				tks = append(tks, literal(c))
+				tks = append(tks, token(c))
 			}
 
 		default:
 			// It's a literal.
-			tks = append(tks, literal(c))
+			tks = append(tks, token(c))
 		}
 	}
 
 	// Unprocessed 'prev' at end of string?
 	switch prev {
 	case escapeChar:
-		tks = append(tks, literal(escapeChar))
+		tks = append(tks, token(escapeChar))
 
 	case '*':
 		if cfg.allowStar {
-			tks = append(tks, punctuation('*'))
+			tks = append(tks, tokenStar)
 		} else {
-			tks = append(tks, literal('*'))
+			tks = append(tks, token('*'))
 		}
 
 	case '?':
 		if cfg.allowQuestion {
-			tks = append(tks, punctuation('?'))
+			tks = append(tks, tokenQuestion)
 		} else {
-			tks = append(tks, literal('?'))
+			tks = append(tks, token('?'))
 		}
 
 	case '+', '@', '!', '[':
-		tks = append(tks, literal(prev))
+		tks = append(tks, token(prev))
 	}
 
 	return &tks
 }
 
 // next uses a pointer to a slice as a consuming reader.
-func (r *tokens) next() any {
+func (r *tokens) next() (token, bool) {
 	if r == nil || len(*r) == 0 {
-		return nil
+		return 0, false
 	}
 	defer func() { *r = (*r)[1:] }()
-	return (*r)[0]
+	return (*r)[0], true
 }
 
 // allLiteral returns a string consisting of all tokens runic equivalents.
@@ -322,8 +349,7 @@ func (r tokens) allLiteral() string {
 	b := strings.Builder{}
 	b.Grow(len(r))
 	for _, t := range r {
-		t, ok := t.(literal)
-		if !ok {
+		if t < 0 {
 			return ""
 		}
 		b.WriteRune(rune(t))
