@@ -119,7 +119,7 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 
 		case pathSep:
 			// Always represent the path separator with / for consistency
-			// with io/fs.
+			// with [io/fs].
 			tks = append(tks, literal('/'))
 
 		case '~':

@@ -149,7 +149,7 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 		}
 
 		// This non-directory thing doesn't match. Don't return
-		// fs.SkipDir, since that skips the remainder of the directory.
+		// [fs.SkipDir], since that skips the remainder of the directory.
 		gs.logf("non-directory didn't match at all; returning nil\n")
 		return nil
 	}
@@ -195,7 +195,7 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 	}
 
 	// Walk the symlink by... recursion.
-	// fs.WalkDir doesn't walk symlinks unless it is the root path... in
+	// [fs.WalkDir] doesn't walk symlinks unless it is the root path... in
 	// which case it does!
 	next := globState{
 		depth:  gs.depth + 1,
