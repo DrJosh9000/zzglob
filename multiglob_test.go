@@ -79,6 +79,51 @@ func TestMultiGlob_MultiplePatterns_DifferentRoots(t *testing.T) {
 	}
 }
 
+func TestMultiGlob_MultiplePatterns_DifferentRoots_WalkIntermediateDirs(t *testing.T) {
+	patterns := mustMultiParse(t,
+		"fixtures/a/b/cid/**/m",
+		"fixtures/a/b/cod/**/m",
+	)
+
+	var got walkFuncCalls
+	if err := MultiGlob(context.Background(), patterns, got.walkFunc, traceLogOpt, WalkIntermediateDirs(true)); err != nil {
+		t.Fatalf("MultiGlob(...) = %v", err)
+	}
+
+	want := walkFuncCalls{
+		calls: []walkFuncArgs{
+			{Path: "fixtures/a/b/cid"},
+			{Path: "fixtures/a/b/cid/erf"},
+			{Path: "fixtures/a/b/cid/erf/h"},
+			{Path: "fixtures/a/b/cid/erf/h/k"},
+			{Path: "fixtures/a/b/cid/erf/h/k/m"},
+			{Path: "fixtures/a/b/cid/erf/h/k/n"},
+			{Path: "fixtures/a/b/cid/erf/h/k/n/m"},
+			{Path: "fixtures/a/b/cid/erf/i"},
+			{Path: "fixtures/a/b/cid/erf/i/m"},
+			{Path: "fixtures/a/b/cid/erf/i/n"},
+			{Path: "fixtures/a/b/cid/erf/i/n/m"},
+			{Path: "fixtures/a/b/cod"},
+			{Path: "fixtures/a/b/cod/erf"},
+			{Path: "fixtures/a/b/cod/erf/h"},
+			{Path: "fixtures/a/b/cod/erf/h/k"},
+			{Path: "fixtures/a/b/cod/erf/h/k/m"},
+			{Path: "fixtures/a/b/cod/erf/h/k/n"},
+			{Path: "fixtures/a/b/cod/erf/h/k/n/m"},
+			{Path: "fixtures/a/b/cod/erf/i"},
+			{Path: "fixtures/a/b/cod/erf/i/m"},
+			{Path: "fixtures/a/b/cod/erf/i/n"},
+			{Path: "fixtures/a/b/cod/erf/i/n/m"},
+		},
+	}
+
+	got.sortCalls()
+
+	if diff := cmp.Diff(got.calls, want.calls); diff != "" {
+		t.Errorf("walked paths diff (-got +want):\n%s", diff)
+	}
+}
+
 func TestMultiGlob_MultiplePatterns_SameRoot(t *testing.T) {
 	patterns := mustMultiParse(t,
 		"fixtures/a/b/c{i}d/**/m",

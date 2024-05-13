@@ -67,6 +67,52 @@ func TestGlob(t *testing.T) {
 	}
 }
 
+func TestGlob_WalkIntermediateDirs(t *testing.T) {
+	pattern := "fixtures/a/b/c*d/e?f/[ghi]/{j,k,l}/**/m"
+	p, err := Parse(pattern)
+	if err != nil {
+		t.Fatalf("Parse(%q) = %v", pattern, err)
+	}
+
+	var got walkFuncCalls
+	if err := p.Glob(got.walkFunc, traceLogOpt, WalkIntermediateDirs(true)); err != nil {
+		t.Fatalf("Glob(...) = %v", err)
+	}
+
+	want := walkFuncCalls{
+		calls: []walkFuncArgs{
+			{Path: "fixtures/a/b"},
+			{Path: "fixtures/a/b/cad"},
+			{Path: "fixtures/a/b/cd"},
+			{Path: "fixtures/a/b/cd/elf"},
+			{Path: "fixtures/a/b/cd/elf/g"},
+			{Path: "fixtures/a/b/cd/elf/g/j"},
+			{Path: "fixtures/a/b/cd/elf/g/j/absurdity"},
+			{Path: "fixtures/a/b/cd/elf/g/j/absurdity/m"},
+			{Path: "fixtures/a/b/cid"},
+			{Path: "fixtures/a/b/cid/erf"},
+			{Path: "fixtures/a/b/cid/erf/h"},
+			{Path: "fixtures/a/b/cid/erf/h/k"},
+			{Path: "fixtures/a/b/cid/erf/h/k/m"},
+			{Path: "fixtures/a/b/cid/erf/h/k/n"},
+			{Path: "fixtures/a/b/cid/erf/h/k/n/m"},
+			{Path: "fixtures/a/b/cid/erf/i"},
+			{Path: "fixtures/a/b/cod"},
+			{Path: "fixtures/a/b/cod/erf"},
+			{Path: "fixtures/a/b/cod/erf/h"},
+			{Path: "fixtures/a/b/cod/erf/h/k"},
+			{Path: "fixtures/a/b/cod/erf/h/k/m"},
+			{Path: "fixtures/a/b/cod/erf/h/k/n"},
+			{Path: "fixtures/a/b/cod/erf/h/k/n/m"},
+			{Path: "fixtures/a/b/cod/erf/i"},
+		},
+	}
+
+	if diff := cmp.Diff(got.calls, want.calls); diff != "" {
+		t.Errorf("walked paths diff (-got +want):\n%s", diff)
+	}
+}
+
 func TestGlob_SymlinkInSymlink(t *testing.T) {
 	// cid       -> symlink to cod
 	// cod/erf/i -> symlink to cod/erf/h/k

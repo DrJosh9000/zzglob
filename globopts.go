@@ -9,11 +9,12 @@ import (
 type GlobOption = func(*globConfig)
 
 type globConfig struct {
-	traverseSymlinks bool
-	translateSlashes bool
-	traceLogger      io.Writer
-	filesystem       fs.FS
-	goroutines       int // only used by MultiGlob
+	traverseSymlinks     bool
+	translateSlashes     bool
+	walkIntermediateDirs bool
+	traceLogger          io.Writer
+	filesystem           fs.FS
+	goroutines           int // only used by MultiGlob
 
 	callback fs.WalkDirFunc // the required arg to Glob
 }
@@ -50,6 +51,22 @@ func TraverseSymlinks(traverse bool) GlobOption {
 func TranslateSlashes(enable bool) GlobOption {
 	return func(cfg *globConfig) {
 		cfg.translateSlashes = enable
+	}
+}
+
+// WalkIntermediateDirs enables or disables calling the walk function with
+// intermediate directory paths (in addition to complete pattern matches).
+// Enabling this is needed in order to skip intermediate directories (by
+// returning fs.SkipDir) based on custom logic in your walk callback.
+// Note that, when enabled, the callback can be called with intermediate
+// directories that ultimately do not contain any completely matching paths.
+// (e.g. when globbing "fixtures/**/*_test", every subdirectory of "fixtures"
+// will be passed to your callback whether or not there is a file named like
+// "*_test" within).
+// Disabled by default.
+func WalkIntermediateDirs(enable bool) GlobOption {
+	return func(cfg *globConfig) {
+		cfg.walkIntermediateDirs = enable
 	}
 }
 

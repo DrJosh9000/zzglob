@@ -27,9 +27,7 @@ func MultiGlob(ctx context.Context, patterns []*Pattern, f fs.WalkDirFunc, opts 
 	cfg := &globConfig{
 		translateSlashes: true,
 		traverseSymlinks: true,
-		traceLogger:      nil,
 		callback:         f,
-		filesystem:       nil,
 	}
 
 	for _, o := range opts {
