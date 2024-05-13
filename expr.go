@@ -33,6 +33,9 @@ type (
 	// [^...] matches like regexp [^...]
 	// The value of a negatedCCExp contains all the runes that do *not* match.
 	negatedCCExp []rune
+
+	// The single-rune version of negatedCCExp
+	negatedLiteralExp rune
 )
 
 func (e literalExp) match(r rune) bool { return rune(e) == r }
@@ -48,8 +51,11 @@ func (e negatedCCExp) match(r rune) bool {
 	return !found
 }
 
-func (e literalExp) String() string   { return string(e) }
-func (starExp) String() string        { return "*" }
-func (doubleStarExp) String() string  { return "**" }
-func (questionExp) String() string    { return "?" }
-func (e negatedCCExp) String() string { return "[^" + string(e) + "]" }
+func (e negatedLiteralExp) match(r rune) bool { return rune(e) != r }
+
+func (e literalExp) String() string        { return string(e) }
+func (starExp) String() string             { return "*" }
+func (doubleStarExp) String() string       { return "**" }
+func (questionExp) String() string         { return "?" }
+func (e negatedCCExp) String() string      { return "[^" + string(e) + "]" }
+func (e negatedLiteralExp) String() string { return "[^" + string(e) + "]" }
