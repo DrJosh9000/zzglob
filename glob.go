@@ -22,9 +22,7 @@ func (p *Pattern) Glob(f fs.WalkDirFunc, opts ...GlobOption) error {
 	cfg := &globConfig{
 		translateSlashes: true,
 		traverseSymlinks: true,
-		traceLogger:      nil,
 		callback:         f,
-		filesystem:       nil,
 	}
 	for _, o := range opts {
 		if o == nil {
@@ -65,7 +63,7 @@ func (p *Pattern) Glob(f fs.WalkDirFunc, opts ...GlobOption) error {
 
 	gs := globState{
 		cfg:    cfg,
-		root:   p.root,
+		root:   cleanRoot,
 		fs:     cfg.filesystem,
 		states: singleton(p.initial),
 	}
@@ -110,6 +108,13 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 
 	if fp == "." {
 		gs.logf("fast path for .\n")
+		if gs.cfg.walkIntermediateDirs {
+			full := gs.root
+			if gs.cfg.translateSlashes {
+				full = filepath.FromSlash(full)
+			}
+			return gs.cfg.callback(full, d, err)
+		}
 		return nil
 	}
 
@@ -144,7 +149,7 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 		}
 
 		// This non-directory thing doesn't match. Don't return
-		// fs.SkipDir, since that skips the remainder of the directory.
+		// [fs.SkipDir], since that skips the remainder of the directory.
 		gs.logf("non-directory didn't match at all; returning nil\n")
 		return nil
 	}
@@ -152,8 +157,8 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 	full := path.Join(gs.root, fp)
 	gs.logf("full = %q\n", full)
 
-	if terminal || err != nil {
-		gs.logf("fully matched, or error! calling callback\n")
+	if terminal || err != nil || (gs.cfg.walkIntermediateDirs && d.IsDir()) {
+		gs.logf("fully matched, error, or intermediate dir! calling callback\n")
 		if gs.cfg.translateSlashes {
 			full = filepath.FromSlash(full)
 		}
@@ -190,7 +195,7 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 	}
 
 	// Walk the symlink by... recursion.
-	// fs.WalkDir doesn't walk symlinks unless it is the root path... in
+	// [fs.WalkDir] doesn't walk symlinks unless it is the root path... in
 	// which case it does!
 	next := globState{
 		depth:  gs.depth + 1,

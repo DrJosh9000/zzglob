@@ -11,10 +11,10 @@ import (
 	"sync"
 )
 
-// MultiGlob is like Pattern.Glob, but globs multiple patterns simultaneously.
+// MultiGlob is like [Pattern.Glob], but globs multiple patterns simultaneously.
 // The main idea is to group the patterns by root to avoid multiple different
-// calls to fs.WalkDir (reducing filesystem I/O), and then to use fs.WalkDir on
-// each root in parallel.
+// calls to [fs.WalkDir] (reducing filesystem I/O), and then to use [fs.WalkDir]
+// on each root in parallel.
 // As a result, files can be walked globbed multiple times, but only if distinct
 // overlapping roots appear in different input patterns.
 // You should either make sure that the callback f is safe to call concurrently
@@ -27,9 +27,7 @@ func MultiGlob(ctx context.Context, patterns []*Pattern, f fs.WalkDirFunc, opts 
 	cfg := &globConfig{
 		translateSlashes: true,
 		traverseSymlinks: true,
-		traceLogger:      nil,
 		callback:         f,
-		filesystem:       nil,
 	}
 
 	for _, o := range opts {
@@ -126,7 +124,7 @@ func multiglobWorker(ctx context.Context, cfg *globConfig, workCh <-chan multigl
 						return err
 					}
 				} else {
-					// Assume root sits at that path within the provided fs.FS.
+					// Assume root sits at that path within the provided [fs.FS].
 					fi, err := fs.Stat(cfg.filesystem, root)
 					if err := cfg.callback(osRoot, fs.FileInfoToDirEntry(fi), err); err != nil {
 						if errors.Is(err, fs.SkipDir) || errors.Is(err, fs.SkipAll) {
