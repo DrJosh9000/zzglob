@@ -37,7 +37,7 @@ func Parse(pattern string, opts ...ParseOption) (*Pattern, error) {
 	root := findRoot(tks)
 
 	// Convert the rest of the sequence into a state machine.
-	initial, terminal, _, err := parseSequence(tks, false)
+	initial, terminal, _, err := parseSequence(tks, parserInsideNothing)
 	if err != nil {
 		return nil, err
 	}
