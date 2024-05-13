@@ -11,6 +11,8 @@ type parserContext int
 const (
 	parserInsideNothing parserContext = iota
 	parserInsideAlternation
+	parserInsideShellExtGlob
+	parserInsideBangParen
 )
 
 // parseSequence parses a sequence.
@@ -72,6 +74,18 @@ func parseSequence(tkns *tokens, pctx parserContext) (start, end *state, endedWi
 			}
 			appendExp(literalExp(','))
 
+		case tokenPipe:
+			if pctx == parserInsideShellExtGlob {
+				return start, end, t, nil
+			}
+			appendExp(literalExp('|'))
+
+		case tokenCloseParen:
+			if pctx == parserInsideShellExtGlob {
+				return start, end, t, nil
+			}
+			appendExp(literalExp(')'))
+
 		case tokenOpenBracket:
 			ed, err := parseCharClass(tkns, end)
 			if err != nil {
@@ -84,6 +98,23 @@ func parseSequence(tkns *tokens, pctx parserContext) (start, end *state, endedWi
 
 		case tokenBracketCaret:
 			ed, err := parseNegatedCharClass(tkns, end)
+			if err != nil {
+				return nil, nil, 0, err
+			}
+			end = ed
+
+		case tokenAtParen, tokenStarParen, tokenPlusParen, tokenQuestionParen:
+			ed, err := parseShellExtGlob(tkns, end, t)
+			if err != nil {
+				return nil, nil, 0, err
+			}
+			end = ed
+
+		case tokenBangParen:
+			if pctx == parserInsideBangParen {
+				return nil, nil, 0, fmt.Errorf("nested negative extglobs are not supported")
+			}
+			ed, err := parseBangParenExtGlob(tkns, end)
 			if err != nil {
 				return nil, nil, 0, err
 			}
@@ -191,4 +222,71 @@ func parseNegatedCharClass(tks *tokens, from *state) (*state, error) {
 		State: end,
 	})
 	return end, nil
+}
+
+// parseShellExtGlob parses any of the shell extglob patterns except !(...).
+func parseShellExtGlob(tks *tokens, from *state, kind token) (end *state, err error) {
+	end = &state{}
+
+	if kind == tokenQuestionParen || kind == tokenStarParen {
+		// ?( = Zero or one; *( = zero or more. => can skip. Add a skip edge.
+		from.Out = append(from.Out, edge{Expr: nil, State: end})
+	}
+	if kind == tokenPlusParen || kind == tokenStarParen {
+		// +( = one or more; *( or more. Add a loop edge.
+		end.Out = append(end.Out, edge{Expr: nil, State: from})
+	}
+	// @( just works like an alternation.
+
+	for {
+		st, ed, done, err := parseSequence(tks, parserInsideShellExtGlob)
+		if err != nil {
+			return nil, err
+		}
+		from.Out = append(from.Out, edge{
+			Expr:  nil,
+			State: st,
+		})
+		ed.Out = append(ed.Out, edge{
+			Expr:  nil,
+			State: end,
+		})
+
+		switch done {
+		case tokenPipe:
+			continue
+
+		case tokenCloseParen:
+			return end, nil
+
+		default:
+			return nil, errors.New("unterminated extglob - missing closing parenthesis")
+		}
+	}
+}
+
+// parseBangParenExtGlob parses !(...)
+func parseBangParenExtGlob(tks *tokens, from *state) (end *state, err error) {
+	end = &state{}
+	for {
+		st, _, done, err := parseSequence(tks, parserInsideBangParen)
+		if err != nil {
+			return nil, err
+		}
+		from.Out = append(from.Out, edge{
+			Expr:  nil,
+			State: st,
+		})
+
+		switch done {
+		case tokenPipe:
+			continue
+
+		case tokenCloseParen:
+			return end, nil
+
+		default:
+			return nil, errors.New("unterminated extglob - missing closing parenthesis")
+		}
+	}
 }
