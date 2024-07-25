@@ -154,15 +154,34 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 		return nil
 	}
 
+	// The path is either a partial or full match from this point.
+
 	full := path.Join(gs.root, fp)
 	gs.logf("full = %q\n", full)
 
-	if terminal || err != nil || (gs.cfg.walkIntermediateDirs && d.IsDir()) {
-		gs.logf("fully matched, error, or intermediate dir! calling callback\n")
+	// If the pattern fully matched, or this is a directory (that partially
+	// matched) and either walkIntermediateDirs is enabled or an error needs
+	// reporting, then call the callback.
+	if terminal || (d.IsDir() && (gs.cfg.walkIntermediateDirs || err != nil)) {
+		switch {
+		case terminal:
+			gs.logf("pattern fully matched! calling callback\n")
+		case err != nil:
+			gs.logf("partial match of intermediate dir, with error (%v)! calling callback\n", err)
+		case gs.cfg.walkIntermediateDirs:
+			gs.logf("partial match of intermediate dir, with walkIntermediateDirs! calling callback\n")
+		}
 		if gs.cfg.translateSlashes {
 			full = filepath.FromSlash(full)
 		}
 		return gs.cfg.callback(full, d, err)
+	}
+
+	// If there was an error walking this path and we didn't call the callback
+	// above, we won't try to complete the match.
+	if err != nil {
+		gs.logf("error at partial match, skipping: %v\n", err)
+		return nil
 	}
 
 	// The pattern matched only partially...
