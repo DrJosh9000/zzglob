@@ -67,6 +67,31 @@ func TestGlob(t *testing.T) {
 	}
 }
 
+func TestGlob_RubySpecs(t *testing.T) {
+	pattern := "fixtures/**/*_spec.rb"
+	p, err := Parse(pattern)
+	if err != nil {
+		t.Fatalf("Parse(%q) = %v", pattern, err)
+	}
+
+	var got walkFuncCalls
+	if err := p.Glob(got.walkFunc, traceLogOpt); err != nil {
+		t.Fatalf("Glob(...) = %v", err)
+	}
+
+	want := walkFuncCalls{
+		calls: []walkFuncArgs{
+			{Path: "fixtures/spec/bar_spec.rb"},
+			{Path: "fixtures/spec/foo_spec.rb"},
+			{Path: "fixtures/spec/model/qux_spec.rb"},
+		},
+	}
+
+	if diff := cmp.Diff(got.calls, want.calls); diff != "" {
+		t.Errorf("walked paths diff (-got +want):\n%s", diff)
+	}
+}
+
 func TestGlob_WalkIntermediateDirs(t *testing.T) {
 	pattern := "fixtures/a/b/c*d/e?f/[ghi]/{j,k,l}/**/m"
 	p, err := Parse(pattern)
@@ -105,6 +130,57 @@ func TestGlob_WalkIntermediateDirs(t *testing.T) {
 			{Path: "fixtures/a/b/cod/erf/h/k/n"},
 			{Path: "fixtures/a/b/cod/erf/h/k/n/m"},
 			{Path: "fixtures/a/b/cod/erf/i"},
+		},
+	}
+
+	if diff := cmp.Diff(got.calls, want.calls); diff != "" {
+		t.Errorf("walked paths diff (-got +want):\n%s", diff)
+	}
+}
+
+func TestGlob_GoTests_WalkIntermediateDirs(t *testing.T) {
+	pattern := "fixtures/**/*_test.go"
+	p, err := Parse(pattern)
+	if err != nil {
+		t.Fatalf("Parse(%q) = %v", pattern, err)
+	}
+
+	var got walkFuncCalls
+	if err := p.Glob(got.walkFunc, traceLogOpt, WalkIntermediateDirs(true)); err != nil {
+		t.Fatalf("Glob(...) = %v", err)
+	}
+
+	want := walkFuncCalls{
+		calls: []walkFuncArgs{
+			{Path: "fixtures"},
+			{Path: "fixtures/a"},
+			{Path: "fixtures/a/b"},
+			{Path: "fixtures/a/b/cad"},
+			{Path: "fixtures/a/b/cd"},
+			{Path: "fixtures/a/b/cd/elf"},
+			{Path: "fixtures/a/b/cd/elf/g"},
+			{Path: "fixtures/a/b/cd/elf/g/j"},
+			{Path: "fixtures/a/b/cd/elf/g/j/absurdity"},
+			{Path: "fixtures/a/b/cid"},
+			{Path: "fixtures/a/b/cid/erf"},
+			{Path: "fixtures/a/b/cid/erf/h"},
+			{Path: "fixtures/a/b/cid/erf/h/k"},
+			{Path: "fixtures/a/b/cid/erf/h/k/n"},
+			{Path: "fixtures/a/b/cid/erf/i"},
+			{Path: "fixtures/a/b/cid/erf/i/n"},
+			{Path: "fixtures/a/b/cod"},
+			{Path: "fixtures/a/b/cod/erf"},
+			{Path: "fixtures/a/b/cod/erf/h"},
+			{Path: "fixtures/a/b/cod/erf/h/k"},
+			{Path: "fixtures/a/b/cod/erf/h/k/n"},
+			{Path: "fixtures/a/b/cod/erf/i"},
+			{Path: "fixtures/a/b/cod/erf/i/n"},
+			{Path: "fixtures/spec"},
+			{Path: "fixtures/spec/cmd"},
+			{Path: "fixtures/spec/cmd/cmd_test.go"},
+			{Path: "fixtures/spec/foo_test.go"},
+			{Path: "fixtures/spec/model"},
+			{Path: "fixtures/spec/snake"},
 		},
 	}
 
