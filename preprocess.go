@@ -8,8 +8,8 @@ import (
 
 // preprocess preprocesses the token sequence in the following ways.
 // Because ** should match zero path segments:
-// - prefix ⁑/ becomes {,⁑/}
-// - /⁑/ becomes /{,⁑/}
+// - prefix **/ becomes {,**/}
+// - /**/ becomes /{,**/}
 // Because ~ means homedir:
 // - Prefix ~/ becomes homedir/ (but only if user.Current() succeeds.)
 //
@@ -20,11 +20,11 @@ func preprocess(in tokens) tokens {
 	}
 	prefixSubs := []replacement{
 		{
-			// Prefix ⁑/ becomes {,⁑/}
-			find: tokens{punctuation('⁑'), literal('/')},
+			// Prefix **/ becomes {,**/}
+			find: tokens{tokenDoubleStar, token('/')},
 			sub: tokens{
-				punctuation('{'), punctuation(','), punctuation('⁑'),
-				literal('/'), punctuation('}'),
+				tokenOpenBrace, tokenComma, tokenDoubleStar,
+				token('/'), tokenCloseBrace,
 			},
 		},
 	}
@@ -32,7 +32,7 @@ func preprocess(in tokens) tokens {
 	if hd := homeDir(); len(hd) > 0 {
 		prefixSubs = append(prefixSubs, replacement{
 			// Prefix ~/ becomes homedir/
-			find: tokens{punctuation('~'), literal('/')},
+			find: tokens{tokenTilde, token('/')},
 			sub:  hd,
 		})
 	}
@@ -43,13 +43,13 @@ func preprocess(in tokens) tokens {
 
 	allSubs := []replacement{
 		{
-			// /⁑/ becomes /{,⁑/}
+			// /**/ becomes /{,**/}
 			find: tokens{
-				literal('/'), punctuation('⁑'), literal('/'),
+				token('/'), tokenDoubleStar, token('/'),
 			},
 			sub: tokens{
-				literal('/'), punctuation('{'), punctuation(','),
-				punctuation('⁑'), literal('/'), punctuation('}'),
+				token('/'), tokenOpenBrace, tokenComma,
+				tokenDoubleStar, token('/'), tokenCloseBrace,
 			},
 		},
 	}
@@ -71,10 +71,10 @@ func homeDir() tokens {
 	homeDir := filepath.ToSlash(u.HomeDir)
 	hd := make(tokens, 0, len(u.HomeDir))
 	for _, r := range homeDir {
-		hd = append(hd, literal(r))
+		hd = append(hd, token(r))
 	}
 	if !strings.HasSuffix(homeDir, "/") {
-		hd = append(hd, literal('/'))
+		hd = append(hd, token('/'))
 	}
 	return hd
 }
@@ -131,14 +131,13 @@ func findRoot(tks *tokens) string {
 	var root []rune
 	lastSlash := -1
 	for i, t := range *tks {
-		l, ok := t.(literal)
-		if !ok {
+		if t < 0 {
 			break
 		}
-		if l == '/' {
+		if t == '/' {
 			lastSlash = i
 		}
-		root = append(root, rune(l))
+		root = append(root, rune(t))
 	}
 	if lastSlash < 0 {
 		// No slash, no root.

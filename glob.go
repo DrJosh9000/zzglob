@@ -131,11 +131,11 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 
 	gs.logf("matchSegment(%d states, %q) -> %d states\n", len(gs.states), fp, len(states))
 
-	terminal := false
+	accept := false
 	for s := range states {
-		if s.Terminal {
-			terminal = true
-			gs.logf("\t(at least one terminal state)\n")
+		if s.Accept {
+			accept = true
+			gs.logf("\t(at least one accept state)\n")
 			break
 		}
 	}
@@ -162,9 +162,9 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 	// If the pattern fully matched, or this is a directory (that partially
 	// matched) and either walkIntermediateDirs is enabled or an error needs
 	// reporting, then call the callback.
-	if terminal || (d.IsDir() && (gs.cfg.walkIntermediateDirs || err != nil)) {
+	if accept || (d.IsDir() && (gs.cfg.walkIntermediateDirs || err != nil)) {
 		switch {
-		case terminal:
+		case accept:
 			gs.logf("pattern fully matched! calling callback\n")
 		case err != nil:
 			gs.logf("partial match of intermediate dir, with error (%v)! calling callback\n", err)
