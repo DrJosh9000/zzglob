@@ -1,28 +1,55 @@
 package zzglob
 
 import (
-	"fmt"
 	"strings"
 )
 
 // Lexer tokens
-type (
-	literal     rune // not any of the below
-	punctuation rune // *, ** (as ⁑), ?, {, }, [, ], ~, or comma
-)
-
-func (literal) tokenTag()     {}
-func (punctuation) tokenTag() {}
-
-func (l literal) String() string     { return fmt.Sprintf("literal(%q)", rune(l)) }
-func (p punctuation) String() string { return fmt.Sprintf("punctuation(%q)", rune(p)) }
-
-type token interface {
-	tokenTag()
-	String() string
-}
+// A non-negative token is a literal (it means the rune that it is).
+// A negative token has special meaning (it's a token).
+type token rune
 
 type tokens []token
+
+// Special tokens.
+const (
+	tokenStar         token = -'*' // *
+	tokenQuestion     token = -'?' // ?
+	tokenOpenBrace    token = -'{' // {
+	tokenCloseBrace   token = -'}' // }
+	tokenOpenBracket  token = -'[' // [
+	tokenCloseBracket token = -']' // ]
+	tokenTilde        token = -'~' // ~
+	tokenComma        token = -',' // ,
+	tokenDoubleStar   token = -128 // **
+	tokenBracketCaret token = -129 // [^
+)
+
+func (t token) String() string {
+	switch t {
+	case tokenStar:
+		return "*"
+	case tokenQuestion:
+		return "?"
+	case tokenOpenBrace:
+		return "{"
+	case tokenCloseBrace:
+		return "}"
+	case tokenOpenBracket:
+		return "["
+	case tokenCloseBracket:
+		return "]"
+	case tokenTilde:
+		return "~"
+	case tokenComma:
+		return ","
+	case tokenDoubleStar:
+		return "**"
+	case tokenBracketCaret:
+		return "[^"
+	}
+	return string(rune(t))
+}
 
 func tokenise(p string, cfg *parseConfig) *tokens {
 	// Most tokens are single runes, so preallocate len(p).
@@ -35,19 +62,49 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 	}
 
 	// Tokenisation state.
-	escape := false        // the previous char was escapeChar
-	star := false          // the previous char was *
-	insideCC := false      // within a char class
-	insideCCFirst := false // first token within a char class
+	// prev is the previous rune read, but only where that rune influences the
+	// interpretation of the next rune, e.g. \ or *. Otherwise it is 0.
+	var prev rune
+	insideCC := false // within a char class
 
 	// Walk through string, producing tokens.
 	for _, c := range p {
 		// Escaping something?
-		if escape {
+		if prev == escapeChar {
 			// The escapeChar escaped c, so c is a literal.
-			escape = false
-			tks = append(tks, literal(c))
+			prev = 0
+			tks = append(tks, token(c))
 			continue
+		}
+
+		// Possible double-rune token?
+		switch prev {
+		case '*':
+			// Could be * or ** depending on options
+			prev = 0
+			if c == '*' && cfg.allowDoubleStar {
+				tks = append(tks, tokenDoubleStar)
+				continue
+			}
+
+			// The previous char was * with possible extra meaning, but c
+			// doesn't make it anything special.
+			// Emit *, then process c normally.
+			if cfg.allowStar {
+				tks = append(tks, tokenStar)
+			} else {
+				tks = append(tks, token('*'))
+			}
+
+		case '[':
+			prev = 0
+			insideCC = true
+			if c == '^' {
+				tks = append(tks, tokenBracketCaret)
+				continue
+			} else {
+				tks = append(tks, tokenOpenBracket)
+			}
 		}
 
 		// Within a char class? No escaping required, other than ].
@@ -57,129 +114,130 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 			switch c {
 			case escapeChar:
 				if cfg.allowEscaping { // Start of escape
-					escape = true
+					prev = escapeChar
 				} else {
-					tks = append(tks, literal(escapeChar))
+					tks = append(tks, token(escapeChar))
 				}
 
 			case ']':
 				// End of cc
-				tks = append(tks, punctuation(']'))
+				tks = append(tks, tokenCloseBracket)
 				insideCC = false
 
 			case '^':
-				// Negated char class only if ^ is first token inside [ ]
-				if insideCCFirst {
-					tks = append(tks, punctuation('^'))
-				} else {
-					tks = append(tks, literal('^'))
-				}
+				// Negated char class only if ^ is first char inside [ ]
+				// That's handled by prev switch
+				tks = append(tks, token('^'))
 
 			default:
-				tks = append(tks, literal(c))
+				tks = append(tks, token(c))
 			}
 
-			insideCCFirst = false
 			continue
 		}
 
-		// Wishing upon a *?
-		if star {
-			star = false
-			if c == '*' {
-				tks = append(tks, punctuation('⁑'))
-				continue
-			}
-
-			// The previous char was a *, but this one isn't.
-			// Emit *, then process c normally.
-			tks = append(tks, punctuation('*'))
-		}
-
 		switch c {
-		case '*': // previous char is not *
-			// It could be a * or **.
-			if cfg.allowStar {
-				if cfg.allowDoubleStar {
-					star = true
-				} else {
-					tks = append(tks, punctuation('*'))
-				}
-			} else {
-				tks = append(tks, literal('*'))
+		case '*': // note prev != '*'
+			// It could be a * or ** depending on options.
+			switch {
+			case cfg.allowStar && cfg.allowDoubleStar:
+				// It could be **
+				prev = '*'
+
+			case cfg.allowStar:
+				// It has to be *
+				tks = append(tks, tokenStar)
+
+			default:
+				// * is not allowed to be anything special.
+				tks = append(tks, token('*'))
 			}
 
 		case escapeChar:
 			if !cfg.allowEscaping {
-				tks = append(tks, literal(escapeChar))
+				tks = append(tks, token(escapeChar))
 				break
 			}
 			// Next char is escaped.
-			escape = true
+			prev = escapeChar
 
 		case pathSep:
 			// Always represent the path separator with / for consistency
-			// with [io/fs].
-			tks = append(tks, literal('/'))
+			// with io/fs.
+			tks = append(tks, token('/'))
 
 		case '~':
 			if cfg.expandTilde {
-				tks = append(tks, punctuation('~'))
+				tks = append(tks, tokenTilde)
 			} else {
-				tks = append(tks, literal('~'))
+				tks = append(tks, token('~'))
 			}
 
 		case '[':
 			if cfg.allowCharClass {
-				insideCC = true
-				insideCCFirst = true
-				tks = append(tks, punctuation('['))
+				// It could be [ or [^
+				prev = '['
 			} else {
-				tks = append(tks, literal('['))
+				tks = append(tks, token('['))
 			}
 
 		case '?':
 			if cfg.allowQuestion {
-				tks = append(tks, punctuation('?'))
+				tks = append(tks, tokenQuestion)
 			} else {
-				tks = append(tks, literal('?'))
+				tks = append(tks, token('?'))
 			}
 
 		case ']':
 			// We only get here if insideCC is false...
-			tks = append(tks, literal(']'))
+			tks = append(tks, token(']'))
 
 		case '{', '}', ',':
 			if cfg.allowAlternation {
-				tks = append(tks, punctuation(c))
+				switch c {
+				case '{':
+					tks = append(tks, tokenOpenBrace)
+				case '}':
+					tks = append(tks, tokenCloseBrace)
+				case ',':
+					tks = append(tks, tokenComma)
+				}
 			} else {
-				tks = append(tks, literal(c))
+				tks = append(tks, token(c))
 			}
 
 		default:
 			// It's a literal.
-			tks = append(tks, literal(c))
+			tks = append(tks, token(c))
 		}
 	}
 
-	// Escape or * at end of string?
-	if escape {
-		tks = append(tks, literal(escapeChar))
-	}
-	if star {
-		tks = append(tks, punctuation('*'))
+	// Unprocessed 'prev' at end of string?
+	switch prev {
+	case '*':
+		if cfg.allowStar {
+			tks = append(tks, tokenStar)
+		} else {
+			tks = append(tks, token('*'))
+		}
+
+	case 0:
+		// Nothing unprocessed
+
+	default: // escapeChar or [
+		tks = append(tks, token(prev))
 	}
 
 	return &tks
 }
 
 // next uses a pointer to a slice as a consuming reader.
-func (r *tokens) next() any {
+func (r *tokens) next() (token, bool) {
 	if r == nil || len(*r) == 0 {
-		return nil
+		return 0, false
 	}
 	defer func() { *r = (*r)[1:] }()
-	return (*r)[0]
+	return (*r)[0], true
 }
 
 // allLiteral returns a string consisting of all tokens runic equivalents.
@@ -188,8 +246,7 @@ func (r tokens) allLiteral() string {
 	b := strings.Builder{}
 	b.Grow(len(r))
 	for _, t := range r {
-		t, ok := t.(literal)
-		if !ok {
+		if t < 0 {
 			return ""
 		}
 		b.WriteRune(rune(t))

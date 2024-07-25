@@ -5,8 +5,8 @@ type state struct {
 	// Out contains all possible transitions out of this state.
 	Out []edge
 
-	// Terminal is whether the state is a fully-matched state.
-	Terminal bool
+	// Accept is whether the state is a fully-matched state.
+	Accept bool
 }
 
 // stateSet represents a set of possible machine states.
