@@ -3,12 +3,18 @@ package zzglob
 import (
 	"fmt"
 	"io"
+	"strings"
 )
 
 // Pattern is a parsed glob pattern.
 type Pattern struct {
+	// Used by the pattern-matching state machine.
 	root    string
 	initial *state
+
+	// For debugging (e.g. WriteDot, String).
+	inputPattern string
+	inputConfig  parseConfig
 }
 
 // Parse parses a pattern.
@@ -28,8 +34,10 @@ func Parse(pattern string, opts ...ParseOption) (*Pattern, error) {
 	// If the pattern is all literals, then it's a specific path.
 	if root := tks.allLiteral(); root != "" {
 		return &Pattern{
-			root:    root,
-			initial: nil,
+			root:         root,
+			initial:      nil,
+			inputPattern: pattern,
+			inputConfig:  cfg,
 		}, nil
 	}
 
@@ -51,8 +59,10 @@ func Parse(pattern string, opts ...ParseOption) (*Pattern, error) {
 
 	// Done! Here's the machine.
 	return &Pattern{
-		root:    root,
-		initial: initial,
+		root:         root,
+		initial:      initial,
+		inputPattern: pattern,
+		inputConfig:  cfg,
 	}, nil
 }
 
@@ -65,10 +75,19 @@ func MustParse(pattern string) *Pattern {
 	return p
 }
 
+func dotStrEscape(x any) string {
+	// "In quoted strings in DOT, the only escaped character is double-quote"
+	return strings.ReplaceAll(fmt.Sprint(x), `"`, `\"`)
+}
+
 // WriteDot writes a digraph representing the state machine to the writer
-// (in GraphViz syntax).
+// (in GraphViz DOT syntax).
 func (p *Pattern) WriteDot(w io.Writer, hilite stateSet) error {
 	if _, err := fmt.Fprintln(w, "digraph {\n\trankdir=LR;"); err != nil {
+		return err
+	}
+	cfgEsc := dotStrEscape(fmt.Sprintf("%+v", p.inputConfig))
+	if _, err := fmt.Fprintf(w, "\tcomment=\"input pattern: \\\"%s\\\" parser config: %s\";\n", dotStrEscape(p.inputPattern), cfgEsc); err != nil {
 		return err
 	}
 
@@ -80,7 +99,7 @@ func (p *Pattern) WriteDot(w io.Writer, hilite stateSet) error {
 		if _, err := fmt.Fprintln(w, "\tterminal [label=\"\", shape=doublecircle];"); err != nil {
 			return err
 		}
-		if _, err := fmt.Fprintf(w, "\tinitial -> terminal [label=\"%s\"];\n", p.root); err != nil {
+		if _, err := fmt.Fprintf(w, "\tinitial -> terminal [label=\"%s\"];\n", dotStrEscape(p.root)); err != nil {
 			return err
 		}
 		if _, err := fmt.Fprintln(w, "}"); err != nil {
@@ -89,7 +108,7 @@ func (p *Pattern) WriteDot(w io.Writer, hilite stateSet) error {
 		return nil
 	}
 
-	if _, err := fmt.Fprintf(w, "\tinitial -> state_%p [label=\"%s\"];\n", p.initial, p.root); err != nil {
+	if _, err := fmt.Fprintf(w, "\tinitial -> state_%p [label=\"%s\"];\n", p.initial, dotStrEscape(p.root)); err != nil {
 		return err
 	}
 
@@ -116,7 +135,7 @@ func (p *Pattern) WriteDot(w io.Writer, hilite stateSet) error {
 			return err
 		}
 		for _, e := range s.Out {
-			if _, err := fmt.Fprintf(w, "\tstate_%p -> state_%p [label=\"%v\"];\n", s, e.State, e.Expr); err != nil {
+			if _, err := fmt.Fprintf(w, "\tstate_%p -> state_%p [label=\"%s\"];\n", s, e.State, dotStrEscape(e.Expr)); err != nil {
 				return err
 			}
 			if seen[e.State] {
@@ -129,6 +148,13 @@ func (p *Pattern) WriteDot(w io.Writer, hilite stateSet) error {
 		return err
 	}
 	return nil
+}
+
+// String returns the pattern in GraphViz DOT syntax.
+func (p *Pattern) String() string {
+	var sb strings.Builder
+	p.WriteDot(&sb, nil)
+	return sb.String()
 }
 
 // reduce tries to safely eliminate any edges with nil expression that it can

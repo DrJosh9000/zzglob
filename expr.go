@@ -5,6 +5,8 @@ import "slices"
 type expression interface {
 	// match reports if the rune matches the expression
 	match(rune) bool
+
+	String() string
 }
 
 // Expressions
