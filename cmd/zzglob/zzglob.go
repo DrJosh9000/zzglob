@@ -2,7 +2,7 @@
 //
 // Example:
 //
-//	$ zzglob '**/*_test.go'
+//	$ zzglob -include '**/*_test.go'
 //	fixtures/spec/cmd/cmd_test.go
 //	fixtures/spec/foo_test.go
 //	glob_test.go
@@ -13,33 +13,84 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io/fs"
 	"os"
+	"time"
 
 	"github.com/DrJosh9000/zzglob"
 )
 
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Fprintf(os.Stderr, "Usage: %s pattern\n", os.Args[0])
-		os.Exit(1)
-	}
+	includePattern := flag.String("include", "", "Glob pattern for matching files to include")
+	excludePattern := flag.String("exclude", "", "Glob pattern for matching files or directories to exclude")
+	listing := flag.Bool("l", false, "If enabled, extra file information is printed for each match")
+	enableTrace := flag.Bool("trace", false, "If enabled, tracing information is logged to stderr")
+	flag.Parse()
 
-	p, err := zzglob.Parse(os.Args[1])
+	incl, err := zzglob.Parse(*includePattern)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Couldn't parse pattern %q: %v\n", os.Args[1], err)
+		fmt.Fprintf(os.Stderr, "Couldn't parse pattern %q: %v\n", *includePattern, err)
 		os.Exit(1)
 	}
+	if *enableTrace {
+		incl.WriteDot(os.Stderr, nil)
+	}
 
-	err = p.Glob(func(path string, d fs.DirEntry, err error) error {
+	var opts []zzglob.GlobOption
+	if *enableTrace {
+		opts = append(opts, zzglob.WithTraceLogs(os.Stderr))
+	}
+	var excl *zzglob.Pattern
+	if *excludePattern != "" {
+		ep, err := zzglob.Parse(*excludePattern)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error at path %q: %v\n", path, err)
-			return nil
+			fmt.Fprintf(os.Stderr, "Couldn't parse exclude pattern %q: %v\n", *excludePattern, err)
+			os.Exit(1)
 		}
-		fmt.Println(path)
-		return nil
-	})
+		excl = ep
+		opts = append(opts, zzglob.WalkIntermediateDirs(true))
+		if *enableTrace {
+			excl.WriteDot(os.Stderr, nil)
+		}
+	}
+
+	err = incl.Glob(
+		func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error at path %q: %v\n", path, err)
+				return nil
+			}
+
+			if excl != nil {
+				if excl.Match(path) {
+					if d.IsDir() {
+						return fs.SkipDir
+					}
+					return nil
+				}
+			}
+
+			if d.IsDir() {
+				return nil
+			}
+
+			if *listing {
+				fi, err := d.Info()
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error at path %q: %v\n", path, err)
+					return nil
+				}
+				fmt.Printf("%v\t%d\t%s\t%s\n", fi.Mode(), fi.Size(), fi.ModTime().Format(time.RFC3339), path)
+			} else {
+				fmt.Println(path)
+			}
+
+			return nil
+		},
+		opts...,
+	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Couldn't perform file system walk: %v\n", err)
 	}
