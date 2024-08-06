@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -82,6 +83,10 @@ func TestGlob_RubySpecs(t *testing.T) {
 	want := walkFuncCalls{
 		calls: []walkFuncArgs{
 			{Path: "fixtures/spec/bar_spec.rb"},
+			{
+				Path: "fixtures/spec/borked",
+				Err:  &fs.PathError{Op: "stat", Path: "spec/borked", Err: syscall.ENOENT},
+			},
 			{Path: "fixtures/spec/foo_spec.rb"},
 			{Path: "fixtures/spec/model/qux_spec.rb"},
 		},
@@ -176,6 +181,10 @@ func TestGlob_GoTests_WalkIntermediateDirs(t *testing.T) {
 			{Path: "fixtures/a/b/cod/erf/i"},
 			{Path: "fixtures/a/b/cod/erf/i/n"},
 			{Path: "fixtures/spec"},
+			{
+				Path: "fixtures/spec/borked",
+				Err:  &fs.PathError{Op: "stat", Path: "spec/borked", Err: syscall.ENOENT},
+			},
 			{Path: "fixtures/spec/cmd"},
 			{Path: "fixtures/spec/cmd/cmd_test.go"},
 			{Path: "fixtures/spec/foo_test.go"},
@@ -333,6 +342,10 @@ func TestGlob_EmptyRoot(t *testing.T) {
 			{Path: "a/b/cod/erf/i/m"},
 			{Path: "a/b/cod/erf/i/n/m"},
 			{Path: "m"},
+			{
+				Path: "spec/borked",
+				Err:  &fs.PathError{Op: "stat", Path: "spec/borked", Err: syscall.ENOENT},
+			},
 		},
 	}
 
