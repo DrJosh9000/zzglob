@@ -2,9 +2,11 @@ package zzglob
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -256,6 +258,10 @@ func TestMultiGlob_EmptyRoot(t *testing.T) {
 			{Path: "a/b/cod/erf/i/m"},
 			{Path: "a/b/cod/erf/i/n/m"},
 			{Path: "m"},
+			{
+				Path: "spec/borked",
+				Err:  &fs.PathError{Op: "stat", Path: "spec/borked", Err: syscall.ENOENT},
+			},
 		},
 	}
 

@@ -107,6 +107,8 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 	}
 
 	if fp == "." {
+		// Assumed invariant: the recursion always walks starting in a directory.
+		// This requires ensuring we don't recurse on symlinks to non-directories.
 		gs.logf("fast path for .\n")
 		if gs.cfg.walkIntermediateDirs {
 			full := gs.root
@@ -150,7 +152,7 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 
 		// This non-directory thing doesn't match. Don't return
 		// [fs.SkipDir], since that skips the remainder of the directory.
-		gs.logf("non-directory didn't match at all; returning nil\n")
+		gs.logf("non-directory didn't match at all; skipping\n")
 		return nil
 	}
 
@@ -165,11 +167,11 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 	if accept || (d.IsDir() && (gs.cfg.walkIntermediateDirs || err != nil)) {
 		switch {
 		case accept:
-			gs.logf("pattern fully matched! calling callback\n")
+			gs.logf("pattern fully matched! passing to callback\n")
 		case err != nil:
-			gs.logf("partial match of intermediate dir, with error (%v)! calling callback\n", err)
+			gs.logf("partial match of intermediate dir, with error (%v)! passing to callback\n", err)
 		case gs.cfg.walkIntermediateDirs:
-			gs.logf("partial match of intermediate dir, with walkIntermediateDirs! calling callback\n")
+			gs.logf("partial match of intermediate dir, with walkIntermediateDirs! passing to callback\n")
 		}
 		if gs.cfg.translateSlashes {
 			full = filepath.FromSlash(full)
@@ -180,7 +182,7 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 	// If there was an error walking this path and we didn't call the callback
 	// above, we won't try to complete the match.
 	if err != nil {
-		gs.logf("error at partial match, skipping: %v\n", err)
+		gs.logf("error at partial match: %v - skipping\n", err)
 		return nil
 	}
 
@@ -188,14 +190,33 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 	// Are we traversing symlinks?
 	if !gs.cfg.traverseSymlinks {
 		// Nope - just keep walking.
-		gs.logf("symlink traversal disabled; continuing walk\n")
+		gs.logf("symlink traversal disabled; skipping\n")
 		return nil
 	}
 
 	// It's all symlink handling from this point.
 	if d == nil || d.Type()&fs.ModeSymlink == 0 {
 		// Not a symlink.
-		gs.logf("not a symlink; continuing walk\n")
+		gs.logf("not a symlink; skipping\n")
+		return nil
+	}
+
+	// Is it a symlink to a directory?
+	// (It looks like fs.Sub doesn't check for this?)
+	fi, err := fs.Stat(gs.fs, fp)
+	if err != nil {
+		// We can't stat it, so we don't know if it's a directory or not, so
+		// it needs reporting to the callback whether or not walkIntermediateDirs
+		// is enabled.
+		gs.logf("fs.Stat symlink error: %v - passing to callback\n", err)
+		if gs.cfg.translateSlashes {
+			full = filepath.FromSlash(full)
+		}
+		return gs.cfg.callback(full, d, err)
+	}
+
+	if !fi.IsDir() {
+		gs.logf("not a directory symlink; skipping\n")
 		return nil
 	}
 
@@ -203,7 +224,7 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 	// another /.
 	states = matchSegment(states, "/")
 	if len(states) == 0 {
-		gs.logf("pattern did not match additional /; continuing walk\n")
+		gs.logf("pattern did not match additional /; skipping\n")
 		return nil
 	}
 
