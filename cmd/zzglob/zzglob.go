@@ -19,7 +19,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/DrJosh9000/zzglob"
+	"drjosh.dev/zzglob"
 )
 
 func main() {

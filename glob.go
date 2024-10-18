@@ -1,5 +1,5 @@
 // Package zzglob implements a file path walker.
-package zzglob
+package zzglob // import "drjosh.dev/zzglob"
 
 import (
 	"errors"

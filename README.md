@@ -1,6 +1,6 @@
 # zzglob
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/DrJosh9000/zzglob.svg)](https://pkg.go.dev/github.com/DrJosh9000/zzglob)
+[![Go Reference](https://pkg.go.dev/badge/drjosh.dev/zzglob.svg)](https://pkg.go.dev/drjosh.dev/zzglob)
 [![Build status](https://badge.buildkite.com/a5a3787ea61600acc07ae0baa09bd444b4399c72c6115cdc24.svg)](https://buildkite.com/drjosh9000/zzglob)
 
 A better glob library for Go
@@ -29,7 +29,7 @@ diagram, by calling `Pattern.WriteDot`. `zzglob` includes a tool called `zzdot`
 which can do this for you, e.g.:
 
 ```shell
-go run cmd/zzdot/zzdot.go '[abcd]{*g,h*,i/j}/**/k' | dot -Tsvg > example.svg
+go run ./cmd/zzdot '[abcd]{*g,h*,i/j}/**/k' | dot -Tsvg > example.svg
 ```
 
 ![Example.svg](example.svg)
@@ -70,11 +70,11 @@ pattern, err := zzglob.Parse(`C:\Windows\Media\*.mid`,
 )
 ```
 
-Similarly, symlink traversal, slash conversion, and custom `fs.FS` can be 
+Similarly, symlink traversal, slash conversion, and custom `fs.FS` can be
 supplied to `Glob`:
 
 ```go
-err := pattern.Glob(myWalkDirFunc, 
+err := pattern.Glob(myWalkDirFunc,
     zzglob.TraverseSymlinks(false),
     zzglob.TranslateSlashes(true),
     zzglob.WithFilesystem(os.DirFS("/secrets/")),

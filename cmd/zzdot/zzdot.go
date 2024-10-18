@@ -40,7 +40,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/DrJosh9000/zzglob"
+	"drjosh.dev/zzglob"
 )
 
 func main() {

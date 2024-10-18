@@ -1,4 +1,4 @@
-module github.com/DrJosh9000/zzglob
+module drjosh.dev/zzglob
 
 go 1.21
 
