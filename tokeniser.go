@@ -13,16 +13,23 @@ type tokens []token
 
 // Special tokens.
 const (
-	tokenStar         token = -'*' // *
-	tokenQuestion     token = -'?' // ?
-	tokenOpenBrace    token = -'{' // {
-	tokenCloseBrace   token = -'}' // }
-	tokenOpenBracket  token = -'[' // [
-	tokenCloseBracket token = -']' // ]
-	tokenTilde        token = -'~' // ~
-	tokenComma        token = -',' // ,
-	tokenDoubleStar   token = -128 // **
-	tokenBracketCaret token = -129 // [^
+	tokenStar          token = -'*' // *
+	tokenQuestion      token = -'?' // ?
+	tokenOpenBrace     token = -'{' // {  (alternation)
+	tokenCloseBrace    token = -'}' // }  (alternation)
+	tokenOpenBracket   token = -'[' // [  (char class)
+	tokenCloseBracket  token = -']' // ]  (char class)
+	tokenTilde         token = -'~' // ~  (homedir)
+	tokenComma         token = -',' // ,  (alternation)
+	tokenPipe          token = -'|' // |  (extglob)
+	tokenCloseParen    token = -')' // )  (extglob)
+	tokenDoubleStar    token = -128 // **
+	tokenBracketCaret  token = -129 // [^  (negated char class)
+	tokenQuestionParen token = -130 // ?(  (extglob)
+	tokenPlusParen     token = -131 // +(  (extglob)
+	tokenStarParen     token = -132 // *(  (extglob)
+	tokenAtParen       token = -133 // @(  (extglob)
+	tokenBangParen     token = -134 // !(  (extglob)
 )
 
 func (t token) String() string {
@@ -47,6 +54,16 @@ func (t token) String() string {
 		return "**"
 	case tokenBracketCaret:
 		return "[^"
+	case tokenQuestionParen:
+		return "?("
+	case tokenPlusParen:
+		return "+("
+	case tokenStarParen:
+		return "*("
+	case tokenAtParen:
+		return "@("
+	case tokenBangParen:
+		return "!("
 	}
 	return string(rune(t))
 }
@@ -69,42 +86,86 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 
 	// Walk through string, producing tokens.
 	for _, c := range p {
-		// Escaping something?
-		if prev == escapeChar {
+		// Reset prev in all cases, but we need to switch on it, so...
+		var rprev rune
+		rprev, prev = prev, 0
+
+		switch rprev {
+		case escapeChar:
+			// Escaping something?
 			// The escapeChar escaped c, so c is a literal.
-			prev = 0
 			tks = append(tks, token(c))
 			continue
-		}
 
-		// Possible double-rune token?
-		switch prev {
 		case '*':
-			// Could be * or ** depending on options
-			prev = 0
-			if c == '*' && cfg.allowDoubleStar {
+			// Could be *, **, or *( depending on options
+			switch {
+			case c == '*' && cfg.allowDoubleStar:
 				tks = append(tks, tokenDoubleStar)
 				continue
+
+			case c == '(' && cfg.enableShellExtGlob:
+				tks = append(tks, tokenStarParen)
+				continue
+
+			default:
+				// The previous char was * with possible extra meaning, but c
+				// doesn't make it anything special.
+				// Emit *, then process c normally.
+				if cfg.allowStar {
+					tks = append(tks, tokenStar)
+				} else {
+					tks = append(tks, token('*'))
+				}
 			}
 
-			// The previous char was * with possible extra meaning, but c
-			// doesn't make it anything special.
-			// Emit *, then process c normally.
-			if cfg.allowStar {
-				tks = append(tks, tokenStar)
-			} else {
-				tks = append(tks, token('*'))
+		case '?':
+			// Could be ?( if shell extglob is enabled
+			if c == '(' && cfg.enableShellExtGlob {
+				tks = append(tks, tokenQuestionParen)
+				continue
 			}
+			// It wasn't, so emit ? or '?' then process c normally.
+			if cfg.allowQuestion {
+				tks = append(tks, tokenQuestion)
+			} else {
+				tks = append(tks, token('?'))
+			}
+
+		case '+':
+			// Could be + or +( if shell extglob is enabled
+			if c == '(' && cfg.enableShellExtGlob {
+				tks = append(tks, tokenPlusParen)
+				continue
+			}
+			tks = append(tks, token('+'))
+
+		case '@':
+			// Could be @ or @( if shell extglob is enabled
+			if c == '(' && cfg.enableShellExtGlob {
+				tks = append(tks, tokenAtParen)
+				continue
+			}
+			tks = append(tks, token('@'))
+
+		case '!':
+			// Could be ! or !( if shell extglob is enabled
+			if c == '(' && cfg.enableShellExtGlob {
+				tks = append(tks, tokenBangParen)
+				continue
+			}
+			tks = append(tks, token('!'))
 
 		case '[':
-			prev = 0
+			// Is a char class, but is it negated?
 			insideCC = true
 			if c == '^' {
 				tks = append(tks, tokenBracketCaret)
 				continue
-			} else {
-				tks = append(tks, tokenOpenBracket)
 			}
+			// Nope, just a regular char class. Emit the bracket and process c
+			// normally.
+			tks = append(tks, tokenOpenBracket)
 		}
 
 		// Within a char class? No escaping required, other than ].
@@ -182,6 +243,11 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 			}
 
 		case '?':
+			if cfg.enableShellExtGlob {
+				// It could be ? or ?(
+				prev = '?'
+				continue
+			}
 			if cfg.allowQuestion {
 				tks = append(tks, tokenQuestion)
 			} else {
@@ -206,6 +272,30 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 				tks = append(tks, token(c))
 			}
 
+		case '+', '@', '!':
+			// These could be +(, @(, or !( if shell extglob is enabled
+			if cfg.enableShellExtGlob {
+				prev = c
+			} else {
+				tks = append(tks, token(c))
+			}
+
+		case '|':
+			// This is the shell extglob special separator
+			if cfg.enableShellExtGlob {
+				tks = append(tks, tokenPipe)
+			} else {
+				tks = append(tks, token('|'))
+			}
+
+		case ')':
+			// This is the shell extglob special terminator
+			if cfg.enableShellExtGlob {
+				tks = append(tks, tokenCloseParen)
+			} else {
+				tks = append(tks, token(')'))
+			}
+
 		default:
 			// It's a literal.
 			tks = append(tks, token(c))
@@ -221,10 +311,17 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 			tks = append(tks, token('*'))
 		}
 
+	case '?':
+		if cfg.allowQuestion {
+			tks = append(tks, tokenQuestion)
+		} else {
+			tks = append(tks, token('?'))
+		}
+
 	case 0:
 		// Nothing unprocessed
 
-	default: // escapeChar or [
+	default: // escapeChar, [, +, @, !
 		tks = append(tks, token(prev))
 	}
 
