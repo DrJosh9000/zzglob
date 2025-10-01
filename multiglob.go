@@ -50,6 +50,7 @@ func MultiGlob(ctx context.Context, patterns []*Pattern, f fs.WalkDirFunc, opts 
 	}
 	workCh := make(chan multiglobWork)
 	wctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
 	var wg sync.WaitGroup
 	for i := 0; i < cfg.goroutines; i++ {
 		wg.Add(1)
