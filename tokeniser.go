@@ -19,7 +19,6 @@ const (
 	tokenCloseBrace   token = -'}' // }
 	tokenOpenBracket  token = -'[' // [
 	tokenCloseBracket token = -']' // ]
-	tokenTilde        token = -'~' // ~
 	tokenComma        token = -',' // ,
 	tokenDoubleStar   token = -128 // **
 	tokenBracketCaret token = -129 // [^
@@ -39,8 +38,6 @@ func (t token) String() string {
 		return "["
 	case tokenCloseBracket:
 		return "]"
-	case tokenTilde:
-		return "~"
 	case tokenComma:
 		return ","
 	case tokenDoubleStar:
@@ -165,13 +162,6 @@ func tokenise(p string, cfg *parseConfig) *tokens {
 			// Always represent the path separator with / for consistency
 			// with io/fs.
 			tks = append(tks, token('/'))
-
-		case '~':
-			if cfg.expandTilde {
-				tks = append(tks, tokenTilde)
-			} else {
-				tks = append(tks, token('~'))
-			}
 
 		case '[':
 			if cfg.allowCharClass {

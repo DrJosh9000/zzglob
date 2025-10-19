@@ -14,27 +14,28 @@ import (
 // - Prefix ~/ becomes homedir/ (but only if user.Current() succeeds.)
 //
 // TODO: Arbitrary local user homedirs?
-func preprocess(in tokens) tokens {
+func preprocess(in tokens, expandTilde bool) tokens {
 	type replacement struct {
 		find, sub tokens
 	}
 	prefixSubs := []replacement{
 		{
 			// Prefix **/ becomes {,**/}
-			find: tokens{tokenDoubleStar, token('/')},
+			find: tokens{tokenDoubleStar, '/'},
 			sub: tokens{
-				tokenOpenBrace, tokenComma, tokenDoubleStar,
-				token('/'), tokenCloseBrace,
+				tokenOpenBrace, tokenComma, tokenDoubleStar, '/', tokenCloseBrace,
 			},
 		},
 	}
 
-	if hd := homeDir(); len(hd) > 0 {
-		prefixSubs = append(prefixSubs, replacement{
-			// Prefix ~/ becomes homedir/
-			find: tokens{tokenTilde, token('/')},
-			sub:  hd,
-		})
+	if expandTilde {
+		if hd := homeDir(); len(hd) > 0 {
+			prefixSubs = append(prefixSubs, replacement{
+				// Prefix ~/ becomes homedir/
+				find: tokens{'~', '/'},
+				sub:  hd,
+			})
+		}
 	}
 
 	for _, ps := range prefixSubs {
@@ -44,12 +45,9 @@ func preprocess(in tokens) tokens {
 	allSubs := []replacement{
 		{
 			// /**/ becomes /{,**/}
-			find: tokens{
-				token('/'), tokenDoubleStar, token('/'),
-			},
+			find: tokens{'/', tokenDoubleStar, '/'},
 			sub: tokens{
-				token('/'), tokenOpenBrace, tokenComma,
-				tokenDoubleStar, token('/'), tokenCloseBrace,
+				'/', tokenOpenBrace, tokenComma, tokenDoubleStar, '/', tokenCloseBrace,
 			},
 		},
 	}
@@ -62,6 +60,7 @@ func preprocess(in tokens) tokens {
 }
 
 // homeDir returns the current user's homedir as a literal token sequence.
+// It will always end in the `/` token.
 func homeDir() tokens {
 	u, err := user.Current()
 	if err != nil {
@@ -74,7 +73,7 @@ func homeDir() tokens {
 		hd = append(hd, token(r))
 	}
 	if !strings.HasSuffix(homeDir, "/") {
-		hd = append(hd, token('/'))
+		hd = append(hd, '/')
 	}
 	return hd
 }

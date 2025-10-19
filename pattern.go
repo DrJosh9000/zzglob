@@ -29,7 +29,7 @@ func Parse(pattern string, opts ...ParseOption) (*Pattern, error) {
 	tks := tokenise(pattern, &cfg)
 
 	// Preprocessing, for example replace ~/ with homedir.
-	*tks = preprocess(*tks)
+	*tks = preprocess(*tks, cfg.expandTilde)
 
 	// If the pattern is all literals, then it's a specific path.
 	if root := tks.allLiteral(); root != "" {

@@ -92,6 +92,54 @@ func TestParse_SwapSlashes(t *testing.T) {
 	}
 }
 
+func TestParse_TildeSlashPrefix(t *testing.T) {
+	tests := []struct {
+		expandTilde bool
+		input       string
+		match       string
+		noMatch     string
+	}{
+		{
+			expandTilde: true,
+			input:       "~/a",
+			match:       string(homeDir()) + "a",
+			noMatch:     "~/a",
+		},
+		{
+			expandTilde: false,
+			input:       "~/a",
+			match:       "~/a",
+			noMatch:     string(homeDir()) + "a",
+		},
+		{
+			expandTilde: true,
+			input:       "a/~",
+			match:       "a/~",
+			noMatch:     "a" + string(homeDir()),
+		},
+		{
+			expandTilde: false,
+			input:       "a/~",
+			match:       "a/~",
+			noMatch:     "a" + string(homeDir()),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			p, err := Parse(test.input, ExpandTilde(test.expandTilde))
+			if err != nil {
+				t.Fatalf("Parse(%q) error = %v", test.input, err)
+			}
+			if got, want := p.Match(test.match), true; got != want {
+				t.Errorf("p.Match(%q) = %t, want %t", test.match, got, want)
+			}
+			if got, want := p.Match(test.noMatch), false; got != want {
+				t.Errorf("p.Match(%q) = %t, want %t", test.noMatch, got, want)
+			}
+		})
+	}
+}
+
 func FuzzParseMatch(f *testing.F) {
 	f.Fuzz(func(t *testing.T, pattern, path string,
 		allowEscaping, allowQuestion, allowStar, allowDoubleStar, allowAlternation, allowCharClass, swapSlashes, expandTilde bool) {

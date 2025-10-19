@@ -1,0 +1,11 @@
+go test fuzz v1
+string("[^ 0zz0 0  0 00z0000 0000000000z00000 00 00000000z0z zz00000 z zzzzzzz1z0zz zz00 zz0z0 z 00 zz        z zz0z000000000000 0 00z000000z  0zzYz0zzzzzz0  zzzzz 000z z z0000z000 zz00000 zYB0z  0  00 0zz00 00000 0 0z0zz 000z00  z zz zAzzz0zz0zz z0 z0z0z00 z z000000000  00000 0 000  000  0 0 00 0Bz 0z 0z0000z+\xf3tCT\xb0_\x850zzz0z zz0z   0z0z0zz z 000z0  z 00 0zz00 0zz000 z0zzz 0 z0z z 1zzz 0zzz0zZ  z0z 00zzz zzzzz z0 zzz0z z]")
+string("9")
+bool(true)
+bool(false)
+bool(true)
+bool(false)
+bool(false)
+bool(true)
+bool(true)
+bool(true)
