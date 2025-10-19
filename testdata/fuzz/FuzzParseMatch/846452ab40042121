@@ -1,0 +1,11 @@
+go test fuzz v1
+string("[^12][^12]")
+string("00")
+bool(true)
+bool(false)
+bool(false)
+bool(false)
+bool(false)
+bool(true)
+bool(true)
+bool(false)
