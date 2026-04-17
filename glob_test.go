@@ -381,6 +381,55 @@ func TestGlob_WithFilesystem(t *testing.T) {
 	}
 }
 
+func TestGlob_SymlinkDirFullMatch(t *testing.T) {
+	// Regression test: when a glob pattern like "**/*" fully matches a
+	// symlink-to-directory, the walker should still descend into the symlinked
+	// directory to find files inside it. Previously, the accept path returned
+	// early (after calling the callback), skipping the symlink traversal logic.
+	tmp := t.TempDir()
+
+	// Create: tmp/root/a/b/real_dir/c/result.txt
+	realDir := filepath.Join(tmp, "root", "a", "b", "real_dir", "c")
+	if err := os.MkdirAll(realDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(realDir, "result.txt"), []byte("ok"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create symlink: tmp/root/a/b/link -> real_dir
+	if err := os.Symlink("real_dir", filepath.Join(tmp, "root", "a", "b", "link")); err != nil {
+		t.Fatal(err)
+	}
+
+	pattern := filepath.ToSlash(filepath.Join(tmp, "root", "**/*"))
+	p, err := Parse(pattern)
+	if err != nil {
+		t.Fatalf("Parse(%q) = %v", pattern, err)
+	}
+
+	var got walkFuncCalls
+	if err := p.Glob(got.walkFunc, traceLogOpt); err != nil {
+		t.Fatalf("Glob(...) = %v", err)
+	}
+
+	// Build a set of paths we found
+	gotPaths := make(map[string]bool)
+	for _, c := range got.calls {
+		gotPaths[c.Path] = true
+	}
+
+	// The file inside the symlinked directory must be found.
+	wantPath := filepath.ToSlash(filepath.Join(tmp, "root", "a", "b", "link", "c", "result.txt"))
+	if !gotPaths[wantPath] {
+		t.Errorf("expected to find %q through symlink traversal, but it was not found.\ngot paths:", wantPath)
+		got.sortCalls()
+		for _, c := range got.calls {
+			t.Errorf("  %s", c.Path)
+		}
+	}
+}
+
 func TestGlob_SpecificPath_WithFilesystem(t *testing.T) {
 	pattern := "a/b/cod/erf/h/k/n/m"
 	p, err := Parse(pattern)
