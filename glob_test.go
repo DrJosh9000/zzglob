@@ -180,6 +180,13 @@ func TestGlob_GoTests_WalkIntermediateDirs(t *testing.T) {
 			{Path: "fixtures/a/b/cod/erf/h/k/n"},
 			{Path: "fixtures/a/b/cod/erf/i"},
 			{Path: "fixtures/a/b/cod/erf/i/n"},
+			{Path: "fixtures/root"},
+			{Path: "fixtures/root/a"},
+			{Path: "fixtures/root/a/b"},
+			{Path: "fixtures/root/a/b/link"},
+			{Path: "fixtures/root/a/b/link/c"},
+			{Path: "fixtures/root/a/b/real_dir"},
+			{Path: "fixtures/root/a/b/real_dir/c"},
 			{Path: "fixtures/spec"},
 			{
 				Path: "fixtures/spec/borked",
