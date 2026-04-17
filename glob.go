@@ -173,10 +173,18 @@ func (gs *globState) walkDirFunc(fp string, d fs.DirEntry, err error) error {
 		case gs.cfg.walkIntermediateDirs:
 			gs.logf("partial match of intermediate dir, with walkIntermediateDirs! passing to callback\n")
 		}
+		cbPath := full
 		if gs.cfg.translateSlashes {
-			full = filepath.FromSlash(full)
+			cbPath = filepath.FromSlash(cbPath)
 		}
-		return gs.cfg.callback(full, d, err)
+		if err := gs.cfg.callback(cbPath, d, err); err != nil {
+			return err
+		}
+		// If accepted and it's a symlink, fall through to symlink traversal
+		// rather than returning, so the walker descends into it.
+		if !accept {
+			return nil
+		}
 	}
 
 	// If there was an error walking this path and we didn't call the callback
